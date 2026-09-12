@@ -21,8 +21,10 @@ async function main() {
     document.addEventListener("click", (event) => {
       const target = event.target.closest("a,button");
       if (target?.textContent.trim() !== "continue with sync pauses") return;
-      window.continuations.push({ at: performance.now(), trusted: event.isTrusted,
-        html: target.closest('[role="dialog"]')?.outerHTML });
+      const record = { at: performance.now(), trusted: event.isTrusted,
+        url: location.href, html: target.closest('[role="dialog"]')?.outerHTML };
+      window.continuations.push(record);
+      queueMicrotask(() => { record.defaultPrevented = event.defaultPrevented; });
     }, true);
   });
   try {
@@ -69,6 +71,8 @@ async function main() {
     // The playing layout can keep the sidebar link outside the viewport.
     await page.locator("#menu-search").evaluate((element) => element.click());
     await page.locator('a[href*="metallica-enter-sandman-tab-s19"]').first().click();
+    await page.waitForFunction(() => document.querySelector("#song-ttl")?.textContent === "Enter Sandman" &&
+      document.querySelector("#control-play")?.getAttribute("data-can-play") === "true");
     await page.locator('#control-source input[value="original"]').check();
     await page.locator("#control-play").click();
     await page.waitForFunction(() => window.continuations.length >= 3, undefined, { timeout: 60000 });
@@ -81,6 +85,18 @@ async function main() {
     assert.ok(result.afterNavigation.original);
     await writeFile(path.join(temporary, "live-results.json"), JSON.stringify(result, null, 2));
     console.log("SPA continuation:", JSON.stringify(result.afterNavigation));
+  } catch (error) {
+    console.log("Failure state:", JSON.stringify(await page.evaluate(() => ({
+      url: location.href, continuations: window.continuations,
+      dialogs: [...document.querySelectorAll('form[role="dialog"]')].map((dialog) => dialog.outerHTML),
+    })), null, 2));
+    const manual = page.getByRole("link", { name: "continue with sync pauses", exact: true });
+    if (await manual.count() === 1) {
+      await manual.click();
+      await page.waitForTimeout(1000);
+      console.log("Manual control comparison:", await page.locator('form[role="dialog"]').count());
+    }
+    throw error;
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });

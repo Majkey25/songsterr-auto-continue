@@ -31,6 +31,24 @@
         normalize(element.innerText) === "upgrade to plus for original audio without sync pauses",
     );
     if (!heading) return;
+    // The site's transition state can outlast the CSS animation itself.
+    const entering = () => [...dialog.classList].some((name) => name.endsWith("_enter") || name.endsWith("_enterActive"));
+    if (entering()) {
+      pending.add(target);
+      const mounted = new MutationObserver(() => {
+        if (entering()) return;
+        clearTimeout(timeout);
+        mounted.disconnect();
+        pending.delete(target);
+        continueDialog(dialog);
+      });
+      mounted.observe(dialog, { attributes: true, attributeFilter: ["class"] });
+      const timeout = setTimeout(() => {
+        mounted.disconnect();
+        pending.delete(target);
+      }, 1000);
+      return;
+    }
     // Closing during Songsterr's entry transition can leave an orphaned dialog.
     if (!ready) {
       pending.add(target);

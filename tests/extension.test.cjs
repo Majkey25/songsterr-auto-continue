@@ -169,6 +169,21 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await count(1);
       assert.equal(await page.evaluate(() => window.clickedDuringAnimation), false);
     });
+    await t.test("waits for site entry state after CSS animation finishes", async () => {
+      await reset();
+      await page.evaluate((html) => {
+        document.querySelector("#app").innerHTML = html;
+        const dialog = document.querySelector("form");
+        dialog.classList.add("changedHash_enter", "changedHash_enterActive");
+        window.clickedWhileEntering = null;
+        dialog.querySelector('a[href=""]').addEventListener("click", () => {
+          window.clickedWhileEntering = dialog.classList.contains("changedHash_enter");
+        });
+        setTimeout(() => dialog.classList.remove("changedHash_enter", "changedHash_enterActive"), 150);
+      }, modal);
+      await count(1);
+      assert.equal(await page.evaluate(() => window.clickedWhileEntering), false);
+    });
     await t.test("another origin is excluded by the manifest", async () => {
       await context.route("https://example.com/**", (route) => route.fulfill({
         contentType: "text/html", body: `<!doctype html><main id="app">${modal}</main>`,

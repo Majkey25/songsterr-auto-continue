@@ -27,17 +27,17 @@ The loaded [ConstraintsModal module](https://static3.songsterr.com/production-ma
 
 The semantic contract is a dialog marker + exact normalized continuation text + exact visible heading + Use Synth and Upgrade controls. Generated classes are not used. Ancestor matching stops at the nearest dialog and rejects BODY/HTML as context. Hidden, inert, disabled, nested unrelated, navigation, and submit controls are rejected.
 
-One observer starts at `document_start` on `document`, so a replaced app root cannot detach it. It examines added subtrees and the nearest dialog affected by a mutation, batches dialogs in a Set, and performs one initial scan. `characterData` also supports delayed text and context. No attribute observer is installed because the observed live prompt is inserted/removed, not toggled from a permanently hidden node.
+One observer starts at `document_start` on `document`, so a replaced app root cannot detach it. It examines added subtrees and the nearest dialog affected by a mutation, batches dialogs in a Set, and performs one initial scan. `characterData` also supports delayed text and context. Global attribute changes are not observed because the live prompt is inserted/removed, not toggled from a permanently hidden node.
 
-Activation waits two animation frames for the page to start its entry transition, then waits for the dialog's native animations to finish and revalidates. This is event-triggered scheduling, not polling. WeakSets prevent both duplicate scheduling and repeated activation of the same element. Nothing is scheduled when no matching dialog exists.
+When the validated dialog has a class ending in `_enter` or `_enterActive`, a temporary observer waits for those transition-state markers to clear. It watches only that dialog's `class` attribute and disconnects after at most one second. The generated class prefix is irrelevant. Two animation frames and native animation completion then allow mounting to finish before revalidation and one click. WeakSets prevent duplicate scheduling and repeated activation of the same element. Nothing is scheduled when no matching dialog exists.
 
-An immediate MutationObserver click and a next-task click both failed in live Brave: each produced one click event during the entry phase, but the dialog remained indefinitely. Clicking a fully mounted real prompt manually with native `.click()` closed it and left Original Audio selected and playback active. Waiting for entry animations allowed subsequent real prompts to appear and close. The public transition implementation schedules entry work across two animation frames; the precise internal ordering that leaves the early-closed dialog orphaned was not instrumented. Regression scenarios cover delayed handler attachment, waiting for an animation, and revalidation of a changed target.
+An immediate MutationObserver click and a next-task click both failed in live Brave: each produced one click event during entry, but the dialog remained indefinitely. CSS-animation completion alone worked for repeated prompts on one song but failed after navigation. The public transition implementation maintains its own entry state beyond CSS completion. Waiting for the entry-state classes to clear avoids closing during that state. The exact internal ordering that leaves an early-closed dialog orphaned was not instrumented. Regression scenarios cover delayed handler attachment, native animations, entry state outlasting animation, and revalidation of changed targets.
 
 No prehide CSS is shipped. The extension leaves the site's blur, blocker, pause timing, entitlements, and API responses to Songsterr. No measured evidence justifies hiding additional UI.
 
 ## Controlled browser checks
 
-Both actual unpacked-extension runs passed **30 scenarios**, reported by Node as 31 tests including the parent test. Fixtures are served at a Songsterr-matching URL; the real manifest injects the extension in its isolated world. No page-script substitute is used.
+Both actual unpacked-extension runs passed **31 scenarios**, reported by Node as 32 tests including the parent test. Fixtures are served at a Songsterr-matching URL; the real manifest injects the extension in its isolated world. No page-script substitute is used.
 
 Covered: observed markup, changed classes, whitespace/case/NBSP, nested text, button and ARIA-button targets, `aria-modal`, unrelated dialogs, missing context, near matches, navigation/submit controls, hidden/inert/disabled controls, nested dialogs, unknown localization, delayed insertion/text/context, repeat replacement prompts, SPA root replacement, detached nodes, delayed handler mount, queued-target changes, normal neighboring controls, and another origin excluded by the manifest. No page exceptions occurred.
 
@@ -45,10 +45,10 @@ Insertion-to-click timing uses `performance.now()` immediately before fixture in
 
 | Browser engine | Minimum | Median | p95 | Maximum |
 | --- | ---: | ---: | ---: | ---: |
-| Chromium 151.0.7922.34 | 2.50 ms | 9.00 ms | 12.80 ms | 14.70 ms |
-| Brave / Chromium 152.0.7977.83 | 3.20 ms | 10.05 ms | 13.40 ms | 66.90 ms |
+| Chromium 151.0.7922.34 | 4.20 ms | 10.60 ms | 11.30 ms | 14.00 ms |
+| Brave / Chromium 152.0.7977.83 | 6.90 ms | 10.90 ms | 11.50 ms | 13.70 ms |
 
-These are synthetic headless measurements without an entry animation on one Windows host, with the two browser checks running concurrently. They are not guarantees about the live site's paint timing, throttled tabs, or other hardware. A live entry animation adds its own duration. No trace established zero visible frames. No CPU-wakeup comparison was measured.
+These are synthetic headless measurements without an entry animation on one Windows host. They are not guarantees about the live site's paint timing, throttled tabs, or other hardware. The live site's entry state lasts roughly 200 ms and adds its own delay. No trace established zero visible frames. No CPU-wakeup comparison was measured.
 
 Commands:
 
@@ -61,7 +61,7 @@ python scripts/package.py
 
 ## Real Songsterr check
 
-The revised unpacked extension ran in an isolated Brave profile on [Master of Puppets](https://www.songsterr.com/a/wsa/metallica-master-of-puppets-tab-s455118). It generated one untrusted native click for each of two real prompt instances at 18.897 s and 30.169 s after navigation. Both dialogs were removed after their exit animations. Original Audio remained selected, playback remained active, Pause responded, and no page exceptions were recorded. Site and YouTube requests were not intercepted.
+The revised unpacked extension ran in an isolated Brave profile on [Master of Puppets](https://www.songsterr.com/a/wsa/metallica-master-of-puppets-tab-s455118). It generated one untrusted native click for each of two real prompt instances at 18.306 s and 29.577 s after navigation, after their entry-state classes had cleared. Both dialogs were removed after exit. Original Audio remained selected, playback remained active, Pause responded, and no page exceptions were recorded. Site and YouTube requests were not intercepted.
 
 An earlier fresh-profile Stairway to Heaven run stayed at the initial score position without producing a prompt for three minutes. A later Master of Puppets run reproduced prompts normally. The live script reports a failure if playback does not produce the required cycles; it never substitutes synthetic prompts for live acceptance.
 
@@ -72,6 +72,7 @@ An earlier fresh-profile Stairway to Heaven run stayed at the initial score posi
 ## Limits
 
 - English wording and dialog semantics are required; a site redesign can disable recognition.
+- Renaming the transition-state suffixes could invalidate the mount-readiness check.
 - An already handled DOM element reused for a later prompt is not clicked again. The observed flow creates replacement elements.
 - Attribute-only visibility changes and text without a later DOM mutation are not retried.
 - Background tabs can delay animation frames. An animation that never finishes leaves the prompt for manual use.
