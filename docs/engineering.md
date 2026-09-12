@@ -31,7 +31,7 @@ One observer starts at `document_start` on `document`, so a replaced app root ca
 
 When the validated dialog has a class ending in `_enter` or `_enterActive`, a temporary observer waits for those transition-state markers to clear. It watches only that dialog's `class` attribute and disconnects after at most one second. The generated class prefix is irrelevant. Two animation frames and native animation completion then allow mounting to finish before revalidation and one click. WeakSets prevent duplicate scheduling and repeated activation of the same element. Nothing is scheduled when no matching dialog exists.
 
-An immediate MutationObserver click and a next-task click both failed in live Brave: each produced one click event during entry, but the dialog remained indefinitely. CSS-animation completion alone worked for repeated prompts on one song but failed after navigation. The public transition implementation maintains its own entry state beyond CSS completion. Waiting for the entry-state classes to clear avoids closing during that state. The exact internal ordering that leaves an early-closed dialog orphaned was not instrumented. Regression scenarios cover delayed handler attachment, native animations, entry state outlasting animation, and revalidation of changed targets.
+The public transition implementation maintains its own entry state beyond CSS completion. Waiting for that state is a conservative mounting safeguard. Early investigations incorrectly attributed navigation failures to click timing: the harness was operating Songsterr's read-only radio input instead of its surrounding source-toggle control. Correcting that interaction produced a successful complete live run without adding mouse events or changing execution worlds. Those early failures do not establish that all these timing safeguards are necessary. Regression scenarios cover delayed handler attachment, native animations, entry state outlasting animation, and changed targets.
 
 No prehide CSS is shipped. The extension leaves the site's blur, blocker, pause timing, entitlements, and API responses to Songsterr. No measured evidence justifies hiding additional UI.
 
@@ -61,9 +61,21 @@ python scripts/package.py
 
 ## Real Songsterr check
 
-The revised unpacked extension ran in an isolated Brave profile on [Master of Puppets](https://www.songsterr.com/a/wsa/metallica-master-of-puppets-tab-s455118). It generated one untrusted native click for each of two real prompt instances at 18.306 s and 29.577 s after navigation, after their entry-state classes had cleared. Both dialogs were removed after exit. Original Audio remained selected, playback remained active, Pause responded, and no page exceptions were recorded. Site and YouTube requests were not intercepted.
+The final isolated-world unpacked extension passed the complete live script in Brave:
 
-An earlier fresh-profile Stairway to Heaven run stayed at the initial score position without producing a prompt for three minutes. A later Master of Puppets run reproduced prompts normally. The live script reports a failure if playback does not produce the required cycles; it never substitutes synthetic prompts for live acceptance.
+1. [Master of Puppets](https://www.songsterr.com/a/wsa/metallica-master-of-puppets-tab-s455118): automatic clicks at 19.189 s and 30.460 s after navigation; both dialogs removed after exit.
+2. Pause responded normally.
+3. Internal navigation through Search to [Enter Sandman](https://www.songsterr.com/a/wsa/metallica-enter-sandman-tab-s19): a third automatic continuation, dialog removed, Original Audio still selected, playback active.
+
+The process exited successfully. No page exceptions were recorded before navigation. Site and YouTube requests were not intercepted. This is one complete clean live run, plus repeated first-song checks; it is not an exhaustive reliability or frame-paint study.
+
+Some isolated-browser attempts stalled with the YouTube video at time 0 / readyState 0 and produced no prompt within three minutes. These runs are not counted as successful checks. A final attempt to evaluate a shorter activation delay was likewise inconclusive because playback stalled, so the proven implementation was retained. The live script fails when it does not observe the required cycles; it never substitutes synthetic prompts for live acceptance.
+
+Live command:
+
+```sh
+node tests/live.cjs "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe" "https://www.songsterr.com/a/wsa/metallica-master-of-puppets-tab-s455118"
+```
 
 ## Prior art comparison
 

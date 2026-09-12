@@ -23,7 +23,7 @@ To update, extract the new release, use **Reload** on the extension card, then r
 
 ## Behavior
 
-The extension watches newly inserted dialogs and text changes. It requires the exact English continuation text, the expected Original Audio heading, and the **Use Synth** + **Upgrade** controls in the same dialog. It waits for the site's entry state to finish, rechecks the target, then clicks once per element. Clicking before the site finishes entering can leave a stuck prompt.
+The extension watches newly inserted dialogs and text changes. It requires the exact English continuation text, the expected Original Audio heading, and the **Use Synth** + **Upgrade** controls in the same dialog. It waits for the site's entry state to finish, rechecks the target, then clicks once per element.
 
 It never clicks Upgrade or Use Synth, changes subscriptions, hides dialogs, removes ads, or bypasses the actual sync pauses. It has no relationship with Songsterr.
 

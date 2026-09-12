@@ -30,7 +30,9 @@ async function main() {
   try {
     await page.goto(process.argv[3] || "https://www.songsterr.com/a/wsa/led-zeppelin-stairway-to-heaven-tab-s27");
     await page.getByRole("button", { name: "Reject All", exact: true }).click({ timeout: 20000 });
-    await page.locator('#control-source input[value="original"]').check();
+    if ((await page.locator("#control-source").getAttribute("aria-label")).startsWith("Switch to original audio")) {
+      await page.locator("#control-source").click();
+    }
     await page.locator("#control-play").click();
     for (let tick = 0; tick < 6; tick++) {
       try {
@@ -73,7 +75,9 @@ async function main() {
     await page.locator('a[href*="metallica-enter-sandman-tab-s19"]').first().click();
     await page.waitForFunction(() => document.querySelector("#song-ttl")?.textContent === "Enter Sandman" &&
       document.querySelector("#control-play")?.getAttribute("data-can-play") === "true");
-    await page.locator('#control-source input[value="original"]').check();
+    if ((await page.locator("#control-source").getAttribute("aria-label")).startsWith("Switch to original audio")) {
+      await page.locator("#control-source").click();
+    }
     await page.locator("#control-play").click();
     await page.waitForFunction(() => window.continuations.length >= 3, undefined, { timeout: 60000 });
     await page.locator('form[role="dialog"]').filter({ hasText: "continue with sync pauses" }).waitFor({ state: "detached", timeout: 3000 });
@@ -90,12 +94,6 @@ async function main() {
       url: location.href, continuations: window.continuations,
       dialogs: [...document.querySelectorAll('form[role="dialog"]')].map((dialog) => dialog.outerHTML),
     })), null, 2));
-    const manual = page.getByRole("link", { name: "continue with sync pauses", exact: true });
-    if (await manual.count() === 1) {
-      await manual.click();
-      await page.waitForTimeout(1000);
-      console.log("Manual control comparison:", await page.locator('form[role="dialog"]').count());
-    }
     throw error;
   } finally {
     await context.close();
