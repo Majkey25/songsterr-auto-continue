@@ -1,0 +1,13 @@
+{
+  "name": "songsterr-auto-continue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development checks only; the extension has no runtime dependencies.",
+  "scripts": {
+    "check": "node --check extension/content.js",
+    "test": "node --test tests/extension.test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

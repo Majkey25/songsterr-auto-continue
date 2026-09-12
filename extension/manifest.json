@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Songsterr Auto Continue",
+  "version": "0.1.0",
+  "description": "Automatically chooses Songsterr's free 'continue with sync pauses' action. Normal sync pauses remain.",
+  "homepage_url": "https://github.com/Majkey25/songsterr-auto-continue",
+  "content_scripts": [{
+    "matches": ["https://www.songsterr.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_start"
+  }]
+}
