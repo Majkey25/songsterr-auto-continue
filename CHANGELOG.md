@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 - 2026-09-12
+
+- Fixed continuation blocked by a stale entry-animation class on redesigned dialogs.
+- Added a custom continuation icon at 16, 32, 48, and 128 pixels.
+- Added a Download latest version button to the README.
+- Publish standard GitHub releases with installable ZIPs and checksums.
+
 ## 0.1.0 - 2026-09-12
 
 - Initial Brave / Chromium Manifest V3 extension.

@@ -15,8 +15,10 @@ destination = root / "dist"
 destination.mkdir(exist_ok=True)
 archive = destination / f"songsterr-auto-continue-{version}.zip"
 with ZipFile(archive, "w", compression=ZIP_DEFLATED) as bundle:
-    for source in ("extension/manifest.json", "extension/content.js", "README.md", "LICENSE"):
-        bundle.write(root / source, Path(source).name)
+    for source in ("manifest.json", "content.js", *manifest["icons"].values()):
+        bundle.write(root / "extension" / source, source)
+    for source in ("README.md", "LICENSE"):
+        bundle.write(root / source, source)
 digest = hashlib.sha256(archive.read_bytes()).hexdigest()
 (destination / "SHA256SUMS.txt").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
 print(f"{archive.name}: {digest}")

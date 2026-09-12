@@ -9,7 +9,7 @@ Automatically clicks **“continue with sync pauses”** when Songsterr interrup
 
 [![Download latest version](https://img.shields.io/badge/Download-latest%20version-2ea44f?style=for-the-badge&logo=github)](https://github.com/Majkey25/songsterr-auto-continue/releases/latest)
 
-Two runtime files. No settings, background worker, polling, analytics, network requests, or runtime dependencies. The extension runs only on `https://www.songsterr.com/*` and requests no additional permissions.
+No settings, background worker, polling, analytics, network requests, or runtime dependencies. The extension runs only on `https://www.songsterr.com/*` and requests no additional permissions.
 
 ## Install in Brave / Chrome
 
@@ -17,7 +17,7 @@ Two runtime files. No settings, background worker, polling, analytics, network r
 2. Extract it into a permanent folder.
 3. Open `brave://extensions` or `chrome://extensions`.
 4. Enable **Developer mode**, choose **Load unpacked**, and select the extracted folder containing `manifest.json`.
-5. Reload any open Songsterr tabs. Select **Original**, then play a song.
+5. **Reload any open Songsterr tabs.** Select **Original**, then play a song. Installing the extension does not activate it in already open pages until they reload.
 
 From a source checkout, load the **`extension/`** folder instead. Node/npm is only needed to run development tests.
 
@@ -64,4 +64,4 @@ It uses an isolated temporary profile, observes two real interruption cycles, an
 
 ## Releases
 
-Tags follow `vMAJOR.MINOR.PATCH` and must match `extension/manifest.json`. CI tests and packages the extension before publishing tagged releases as standard GitHub releases. Release ZIPs include the two runtime files, this README, and the MIT license; development dependencies are excluded. SHA-256 checksums accompany each release.
+Tags follow `vMAJOR.MINOR.PATCH` and must match `extension/manifest.json`. CI tests and packages the extension before publishing tagged releases as standard GitHub releases. Release ZIPs include the runtime files, icons, this README, and the MIT license; development dependencies are excluded. SHA-256 checksums accompany each release.

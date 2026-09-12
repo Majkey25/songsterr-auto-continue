@@ -29,7 +29,7 @@ The semantic contract is a dialog marker + exact normalized continuation text + 
 
 One observer starts at `document_start` on `document`, so a replaced app root cannot detach it. It examines added subtrees and the nearest dialog affected by a mutation, batches dialogs in a Set, and performs one initial scan. `characterData` also supports delayed text and context. Global attribute changes are not observed because the live prompt is inserted/removed, not toggled from a permanently hidden node.
 
-When the validated dialog has a class ending in `_enter` or `_enterActive`, a temporary observer waits for those transition-state markers to clear. It watches only that dialog's `class` attribute and disconnects after at most one second. The generated class prefix is irrelevant. Two animation frames and native animation completion then allow mounting to finish before revalidation and one click. WeakSets prevent duplicate scheduling and repeated activation of the same element. Nothing is scheduled when no matching dialog exists.
+When the validated dialog has a class ending in `_enter`, a temporary observer waits for that transition-state marker to clear. It watches only that dialog's `class` attribute and disconnects after at most one second. A lone `_enterActive` marker is ignored because late animation frames can leave it on a settled dialog. The generated class prefix is irrelevant. Two animation frames and native animation completion then allow mounting to finish before revalidation and one click. WeakSets prevent duplicate scheduling and repeated activation of the same element. Nothing is scheduled when no matching dialog exists.
 
 The public transition implementation maintains its own entry state beyond CSS completion. Waiting for that state is a conservative mounting safeguard. Early investigations incorrectly attributed navigation failures to click timing: the harness was operating Songsterr's read-only radio input instead of its surrounding source-toggle control. Correcting that interaction produced a successful complete live run without adding mouse events or changing execution worlds. Those early failures do not establish that all these timing safeguards are necessary. Regression scenarios cover delayed handler attachment, native animations, entry state outlasting animation, and changed targets.
 
@@ -37,7 +37,7 @@ No prehide CSS is shipped. The extension leaves the site's blur, blocker, pause 
 
 ## Controlled browser checks
 
-Both actual unpacked-extension runs passed **31 scenarios**, reported by Node as 32 tests including the parent test. Fixtures are served at a Songsterr-matching URL; the real manifest injects the extension in its isolated world. No page-script substitute is used.
+For 0.1.1, both actual unpacked-extension runs passed **32 scenarios**, reported by Node as 33 tests including the parent test. Fixtures are served at a Songsterr-matching URL; the real manifest injects the extension in its isolated world. No page-script substitute is used.
 
 Covered: observed markup, changed classes, whitespace/case/NBSP, nested text, button and ARIA-button targets, `aria-modal`, unrelated dialogs, missing context, near matches, navigation/submit controls, hidden/inert/disabled controls, nested dialogs, unknown localization, delayed insertion/text/context, repeat replacement prompts, SPA root replacement, detached nodes, delayed handler mount, queued-target changes, normal neighboring controls, and another origin excluded by the manifest. No page exceptions occurred.
 
@@ -45,8 +45,8 @@ Insertion-to-click timing uses `performance.now()` immediately before fixture in
 
 | Browser engine | Minimum | Median | p95 | Maximum |
 | --- | ---: | ---: | ---: | ---: |
-| Chromium 151.0.7922.34 | 4.20 ms | 10.60 ms | 11.30 ms | 14.00 ms |
-| Brave / Chromium 152.0.7977.83 | 6.90 ms | 10.90 ms | 11.50 ms | 13.70 ms |
+| Chromium 151.0.7922.34 | 3.90 ms | 11.00 ms | 11.80 ms | 13.30 ms |
+| Brave / Chromium 152.0.7977.83 | 7.90 ms | 11.10 ms | 11.80 ms | 12.30 ms |
 
 These are synthetic headless measurements without an entry animation on one Windows host. They are not guarantees about the live site's paint timing, throttled tabs, or other hardware. The live site's entry state lasts roughly 200 ms and adds its own delay. No trace established zero visible frames. No CPU-wakeup comparison was measured.
 
@@ -60,6 +60,14 @@ python scripts/package.py
 ```
 
 ## Real Songsterr check
+
+### 0.1.1 reported failure
+
+Inspection of the reported redesigned dialog in an existing Brave session showed correct English text, visible controls, and no active native animations. The installed 0.1.0 detector nevertheless classified `w_eHuW_modal w_eHuW_modalRedesign e7HakW_enterActive` as still entering. Its one-second observer expired without clicking because that stale class never cleared. A fixture retaining only `e7HakW_enterActive` reproduced the failure before the fix and passed afterward. The fix changes only the entry-state predicate; it adds no alternate text matching or extra click events.
+
+The existing tab also initially lacked the installed content script. Reloading Songsterr loaded it. Extension updates require reloading the extension card and then the website tab.
+
+### 0.1.0 baseline
 
 The final isolated-world unpacked extension passed the complete live script in Brave:
 

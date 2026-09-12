@@ -184,6 +184,12 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await count(1);
       assert.equal(await page.evaluate(() => window.clickedWhileEntering), false);
     });
+    await t.test("stale entry-active class does not block a settled dialog", async () => {
+      await reset();
+      await insert(modal.replace('class="w_eHuW_modal"', 'class="w_eHuW_modal e7HakW_enterActive"'));
+      await page.waitForFunction(() => window.clicks.length === 1, undefined, { timeout: 1500 });
+      await count(1);
+    });
     await t.test("another origin is excluded by the manifest", async () => {
       await context.route("https://example.com/**", (route) => route.fulfill({
         contentType: "text/html", body: `<!doctype html><main id="app">${modal}</main>`,

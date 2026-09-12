@@ -31,8 +31,8 @@
         normalize(element.innerText) === "upgrade to plus for original audio without sync pauses",
     );
     if (!heading) return;
-    // The site's transition state can outlast the CSS animation itself.
-    const entering = () => [...dialog.classList].some((name) => name.endsWith("_enter") || name.endsWith("_enterActive"));
+    // Late animation frames can leave _enterActive on an already settled dialog.
+    const entering = () => [...dialog.classList].some((name) => name.endsWith("_enter"));
     if (entering()) {
       pending.add(target);
       const mounted = new MutationObserver(() => {
