@@ -40,5 +40,5 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS.txt \
-            --verify-tag --prerelease --title "Songsterr Auto Continue $RELEASE_TAG" \
+            --verify-tag --title "Songsterr Auto Continue $RELEASE_TAG" \
             --notes-file .github/release-notes.md

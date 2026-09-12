@@ -1,13 +1,13 @@
 # Songsterr Auto Continue
 
 [![CI](https://github.com/Majkey25/songsterr-auto-continue/actions/workflows/ci.yml/badge.svg)](https://github.com/Majkey25/songsterr-auto-continue/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Majkey25/songsterr-auto-continue?include_prereleases)](https://github.com/Majkey25/songsterr-auto-continue/releases)
+[![Release](https://img.shields.io/github/v/release/Majkey25/songsterr-auto-continue)](https://github.com/Majkey25/songsterr-auto-continue/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-green.svg)
 
 Automatically clicks **“continue with sync pauses”** when Songsterr interrupts free Original Audio playback. **Songsterr's normal sync pauses remain.**
 
-[![Download latest version](https://img.shields.io/badge/Download-latest%20version-2ea44f?style=for-the-badge&logo=github)](https://github.com/Majkey25/songsterr-auto-continue/releases)
+[![Download latest version](https://img.shields.io/badge/Download-latest%20version-2ea44f?style=for-the-badge&logo=github)](https://github.com/Majkey25/songsterr-auto-continue/releases/latest)
 
 Two runtime files. No settings, background worker, polling, analytics, network requests, or runtime dependencies. The extension runs only on `https://www.songsterr.com/*` and requests no additional permissions.
 
@@ -64,4 +64,4 @@ It uses an isolated temporary profile, observes two real interruption cycles, an
 
 ## Releases
 
-Tags follow `vMAJOR.MINOR.PATCH` and must match `extension/manifest.json`. CI tests and packages the extension before publishing tagged releases. Versions below 1.0 are prereleases. Release ZIPs include the two runtime files, this README, and the MIT license; development dependencies are excluded. SHA-256 checksums accompany each release.
+Tags follow `vMAJOR.MINOR.PATCH` and must match `extension/manifest.json`. CI tests and packages the extension before publishing tagged releases as standard GitHub releases. Release ZIPs include the two runtime files, this README, and the MIT license; development dependencies are excluded. SHA-256 checksums accompany each release.
