@@ -73,8 +73,17 @@
       scheduleRetry(dialog);
       return;
     }
-    handled.add(target);
+
+    pending.add(target);
     target.click();
+    setTimeout(() => {
+      pending.delete(target);
+      if (!dialog.isConnected) {
+        handled.add(target);
+        return;
+      }
+      continueDialog(dialog, true);
+    }, 150);
   }
 
   function collect(node, dialogs) {
