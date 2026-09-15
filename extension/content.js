@@ -4,6 +4,9 @@
   const dialogSelector = 'dialog, [role="dialog"], [aria-modal="true"]';
   const controlSelector = 'a, button, [role="button"]';
   const handled = new WeakSet();
+  const queued = new Set();
+  const channel = new MessageChannel();
+  let flushScheduled = false;
   const normalize = (text) => text.replace(/\s+/gu, " ").trim().toLowerCase();
 
   function visible(element) {
@@ -45,6 +48,21 @@
     target.click();
   }
 
+  function schedule(dialog) {
+    if (!dialog.isConnected) return;
+    queued.add(dialog);
+    if (flushScheduled) return;
+    flushScheduled = true;
+    channel.port2.postMessage(null);
+  }
+
+  channel.port1.onmessage = () => {
+    flushScheduled = false;
+    const dialogs = [...queued];
+    queued.clear();
+    for (const dialog of dialogs) dismiss(dialog);
+  };
+
   function collect(node, dialogs) {
     const element = node instanceof Element ? node : node.parentElement;
     if (!element?.isConnected) return;
@@ -60,7 +78,7 @@
       collect(mutation.target, dialogs);
       for (const node of mutation.addedNodes) collect(node, dialogs);
     }
-    for (const dialog of dialogs) dismiss(dialog);
+    for (const dialog of dialogs) schedule(dialog);
   }).observe(document, {
     childList: true,
     subtree: true,
@@ -69,5 +87,5 @@
     attributeFilter: ["class", "style", "hidden", "inert", "aria-hidden", "aria-disabled", "disabled"],
   });
 
-  for (const dialog of document.querySelectorAll(dialogSelector)) dismiss(dialog);
+  for (const dialog of document.querySelectorAll(dialogSelector)) schedule(dialog);
 })();
