@@ -37,7 +37,9 @@ jobs:
       - name: Resolve release tag
         id: version
         shell: bash
-        run: echo "tag=v$(node -p \"require('./extension/manifest.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(node -p "require('./extension/manifest.json').version")
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
       - name: Check existing release
         id: existing
         env:
