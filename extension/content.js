@@ -15,7 +15,6 @@
 
   function candidate(dialog) {
     if (!dialog.isConnected || dialog === document.body || dialog === document.documentElement) return null;
-
     const buttons = [...dialog.querySelectorAll(controls)].filter(
       (element) => element instanceof HTMLElement && element.closest(dialogSelector) === dialog,
     );
@@ -23,17 +22,14 @@
     if (!target || handled.has(target)) return null;
     if (target.matches("a[href]") && !["", "#"].includes(target.getAttribute("href"))) return null;
     if (target.matches("button") && target.type !== "button") return null;
-
     const synth = buttons.find((element) => normalize(element.innerText) === "use synth");
     const upgrade = buttons.find((element) => normalize(element.innerText) === "upgrade");
     if (!synth || !upgrade) return null;
-
     const heading = [...dialog.querySelectorAll("p, h1, h2, h3, [role='heading']")].find(
       (element) => element.closest(dialogSelector) === dialog &&
         normalize(element.innerText) === "upgrade to plus for original audio without sync pauses",
     );
     if (!heading) return null;
-
     return { target, synth, upgrade, heading };
   }
 
@@ -51,18 +47,15 @@
     if (!match) return;
     const { target, synth, upgrade, heading } = match;
     if (pending.has(target)) return;
-
     if (![target, synth, upgrade, heading].every(visible)) {
       scheduleRetry(dialog);
       return;
     }
-
     const entering = () => [...dialog.classList].some((name) => name.endsWith("_enter"));
     if (entering()) {
       scheduleRetry(dialog, 50);
       return;
     }
-
     if (!ready) {
       pending.add(target);
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -70,18 +63,16 @@
           setTimeout(() => {
             pending.delete(target);
             continueDialog(dialog, true);
-          }, 220);
+          }, 350);
         });
       }));
       return;
     }
-
     const rechecked = candidate(dialog);
     if (!rechecked || rechecked.target !== target || ![target, synth, upgrade, heading].every(visible)) {
       scheduleRetry(dialog);
       return;
     }
-
     handled.add(target);
     target.click();
   }
