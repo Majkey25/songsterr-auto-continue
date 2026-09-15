@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { mkdir, mkdtemp, rm } = require("node:fs/promises");
+const { mkdir, mkdtemp, readFile, rm } = require("node:fs/promises");
 const path = require("node:path");
 const { chromium } = require("playwright");
 
@@ -36,6 +36,15 @@ async function withBrowser(fn) {
   }
 }
 
+test("production is driven by DOM state, not wall-clock timing", async () => {
+  const source = await readFile(path.resolve("extension/content.js"), "utf8");
+
+  assert.match(source, /MutationObserver/);
+  for (const timingPrimitive of ["setTimeout(", "setInterval(", "requestAnimationFrame(", ".getAnimations(", "_enter"]) {
+    assert.ok(!source.includes(timingPrimitive), `production still depends on ${timingPrimitive}`);
+  }
+});
+
 test("clicks when an already-mounted dialog becomes visible by attribute change", async () => {
   await withBrowser(async (page) => {
     await page.evaluate(() => {
@@ -56,47 +65,56 @@ test("clicks when an already-mounted dialog becomes visible by attribute change"
   });
 });
 
-test("handles every repeated prompt with the same late-mounted site handler", async () => {
+test("clicks as soon as progressive mounting makes the prompt actionable", async () => {
+  await withBrowser(async (page) => {
+    await page.evaluate(() => {
+      window.continuations = 0;
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("a,button");
+        if (target?.textContent.trim().toLowerCase() === "continue with sync pauses") {
+          event.preventDefault();
+          window.continuations++;
+        }
+      }, true);
+      document.querySelector("#app").innerHTML = '<form role="dialog"><div id="prompt"></div></form>';
+    });
+
+    await page.evaluate(() => {
+      document.querySelector("#prompt").insertAdjacentHTML("beforeend", `
+        <p>Upgrade to Plus for Original audio without sync pauses</p>
+        <p>Or switch to Synth audio</p>
+        <button type="button">Use Synth</button>
+        <a href="/plus">Upgrade</a>
+      `);
+    });
+    assert.equal(await page.evaluate(() => window.continuations), 0);
+
+    await page.evaluate(() => {
+      document.querySelector("#prompt").insertAdjacentHTML("beforeend", '<p>Or <a href="">continue with sync pauses</a></p>');
+    });
+    await page.waitForFunction(() => window.continuations === 1, undefined, { timeout: 1000 });
+  });
+});
+
+test("handles every repeated prompt when the site handler is attached in the same DOM commit", async () => {
   await withBrowser(async (page) => {
     await page.evaluate(() => { window.activations = 0; });
 
-    for (let i = 1; i <= 8; i++) {
+    for (let i = 1; i <= 12; i++) {
       await page.evaluate((html) => {
         const app = document.querySelector("#app");
         app.innerHTML = html.replace('style="display:none"', 'style="display:block"');
         const dialog = app.querySelector('[role="dialog"]');
         const target = dialog.querySelector('a[href=""]');
-        setTimeout(() => target.addEventListener("click", (event) => {
+        target.addEventListener("click", (event) => {
           event.preventDefault();
           window.activations++;
           dialog.remove();
-        }, { once: true }), 700);
+        }, { once: true });
       }, modal);
 
-      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 2200 });
+      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 1000 });
       assert.equal(await page.evaluate(() => window.activations), i);
     }
-  });
-});
-
-test("dismisses an immediately actionable prompt within 150 ms", async () => {
-  await withBrowser(async (page) => {
-    const elapsed = await page.evaluate(async (html) => {
-      const app = document.querySelector("#app");
-      const started = performance.now();
-      app.innerHTML = html.replace('style="display:none"', 'style="display:block"');
-      const dialog = app.querySelector('[role="dialog"]');
-      const target = dialog.querySelector('a[href=""]');
-      target.addEventListener("click", (event) => {
-        event.preventDefault();
-        dialog.remove();
-      }, { once: true });
-      while (dialog.isConnected && performance.now() - started < 1000) {
-        await new Promise((resolve) => setTimeout(resolve, 1));
-      }
-      return performance.now() - started;
-    }, modal);
-
-    assert.ok(elapsed < 150, `prompt stayed visible for ${elapsed.toFixed(1)} ms`);
   });
 });
