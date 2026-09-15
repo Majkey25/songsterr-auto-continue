@@ -29,7 +29,8 @@ async function main() {
   });
   try {
     await page.goto(process.argv[3] || "https://www.songsterr.com/a/wsa/led-zeppelin-stairway-to-heaven-tab-s27");
-    await page.getByRole("button", { name: "Reject All", exact: true }).click({ timeout: 20000 });
+    const reject = page.getByRole("button", { name: "Reject All", exact: true });
+    if (await reject.count()) await reject.click({ timeout: 5000 });
     if ((await page.locator("#control-source").getAttribute("aria-label")).startsWith("Switch to original audio")) {
       await page.locator("#control-source").click();
     }
