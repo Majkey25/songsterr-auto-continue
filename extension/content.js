@@ -58,12 +58,12 @@
     }
     if (!ready) {
       pending.add(target);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
         Promise.allSettled(dialog.getAnimations().map((animation) => animation.finished)).then(() => {
           pending.delete(target);
           continueDialog(dialog, true);
         });
-      }));
+      });
       return;
     }
     const rechecked = candidate(dialog);
@@ -72,12 +72,36 @@
       return;
     }
 
-    handled.add(target);
-    const preventAnchorNavigation = (event) => event.preventDefault();
-    if (target.matches("a[href]")) {
-      target.addEventListener("click", preventAnchorNavigation, { capture: true, once: true });
+    if (!target.matches("a[href]")) {
+      handled.add(target);
+      target.click();
+      return;
     }
+
+    pending.add(target);
+    let siteHandled = false;
+    const navigationGuard = (event) => {
+      if (event.target !== target) return;
+      siteHandled = event.defaultPrevented;
+      event.preventDefault();
+    };
+    window.addEventListener("click", navigationGuard, { once: true });
     target.click();
+
+    if (!dialog.isConnected || siteHandled) {
+      pending.delete(target);
+      handled.add(target);
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      pending.delete(target);
+      if (!dialog.isConnected) {
+        handled.add(target);
+        return;
+      }
+      continueDialog(dialog, true);
+    });
   }
 
   function collect(node, dialogs) {
