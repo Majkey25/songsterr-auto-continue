@@ -1,11 +1,18 @@
 # Changelog
 
+## 0.1.3 - 2026-09-15
+
+- Treat every recognized continuation prompt identically; there is no position- or count-based handling.
+- Retry the same validated free continuation action while its dialog remains open, covering late Songsterr click-handler mounting.
+- Prevent the empty-link fallback navigation during retries so an early click cannot reload the page before Songsterr is ready.
+- Added regression coverage where every repeated prompt gets the same deliberately late handler.
+
 ## 0.1.2 - 2026-09-15
 
 - Fixed intermittent missed continuation prompts caused by mount/readiness races.
 - Rechecks recognized prompts across visibility and attribute changes.
 - Waits for Songsterr's UI to finish mounting before activation.
-- Added regression coverage for prompts whose click handler becomes available late, including repeated every-fourth-prompt failures.
+- Added regression coverage for late-mounted prompt handlers.
 
 ## 0.1.1 - 2026-09-12
 
