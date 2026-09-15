@@ -75,6 +75,10 @@
     }
 
     pending.add(target);
+    const preventAnchorNavigation = (event) => event.preventDefault();
+    if (target.matches("a[href]")) {
+      target.addEventListener("click", preventAnchorNavigation, { capture: true, once: true });
+    }
     target.click();
     setTimeout(() => {
       pending.delete(target);
