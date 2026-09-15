@@ -60,10 +60,8 @@
       pending.add(target);
       requestAnimationFrame(() => requestAnimationFrame(() => {
         Promise.allSettled(dialog.getAnimations().map((animation) => animation.finished)).then(() => {
-          setTimeout(() => {
-            pending.delete(target);
-            continueDialog(dialog, true);
-          }, 350);
+          pending.delete(target);
+          continueDialog(dialog, true);
         });
       }));
       return;
@@ -80,14 +78,14 @@
       target.addEventListener("click", preventAnchorNavigation, { capture: true, once: true });
     }
     target.click();
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       pending.delete(target);
       if (!dialog.isConnected) {
         handled.add(target);
         return;
       }
       continueDialog(dialog, true);
-    }, 150);
+    });
   }
 
   function collect(node, dialogs) {
