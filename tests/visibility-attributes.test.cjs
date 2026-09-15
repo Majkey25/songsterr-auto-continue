@@ -78,3 +78,25 @@ test("handles every repeated prompt with the same late-mounted site handler", as
     }
   });
 });
+
+test("dismisses an immediately actionable prompt within 150 ms", async () => {
+  await withBrowser(async (page) => {
+    const elapsed = await page.evaluate(async (html) => {
+      const app = document.querySelector("#app");
+      const started = performance.now();
+      app.innerHTML = html.replace('style="display:none"', 'style="display:block"');
+      const dialog = app.querySelector('[role="dialog"]');
+      const target = dialog.querySelector('a[href=""]');
+      target.addEventListener("click", (event) => {
+        event.preventDefault();
+        dialog.remove();
+      }, { once: true });
+      while (dialog.isConnected && performance.now() - started < 1000) {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+      }
+      return performance.now() - started;
+    }, modal);
+
+    assert.ok(elapsed < 150, `prompt stayed visible for ${elapsed.toFixed(1)} ms`);
+  });
+});
