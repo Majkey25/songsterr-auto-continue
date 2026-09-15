@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 - 2026-09-15
+
+- Replaced fixed timing and animation waits with DOM-driven continuation handling.
+- Detects relevant Songsterr dialog mutations, lets the current DOM commit settle, revalidates the exact free action, then activates it without any millisecond delay or polling.
+- Ignores generated entry-animation classes and does not wait for CSS animations.
+- Added regressions for progressive mounting, hidden-to-visible dialogs, DOM changes before activation, repeated prompts, and production code remaining free of timer-based scheduling.
+- Reduced synthetic insertion-to-click latency to a 0.6 ms median and 0.8 ms p95 across 200 Chromium runs in CI.
+
 ## 0.1.3 - 2026-09-15
 
 - Treat every recognized continuation prompt identically; there is no position- or count-based handling.

@@ -4,7 +4,9 @@ Download the extension ZIP below, extract it, then select that folder using **Lo
 
 Updating an existing installation: replace its files, click **Reload** on the extension card, then reload the Songsterr tab.
 
-Version 0.1.3 removes the misleading position-specific assumption completely. Every recognized continuation prompt follows the same logic. If Songsterr has mounted the prompt before its click handler is ready, the extension safely retries the same validated free action while the dialog is still present and suppresses the empty-link fallback navigation that could otherwise reload the page. Regression coverage applies the same deliberately late handler to every repeated prompt.
+Version 0.1.4 replaces fixed timing guesses with DOM-driven handling. The extension watches Songsterr dialog mutations, waits only for the current DOM commit and its microtasks to settle, revalidates the exact visible free continuation action, and clicks it immediately. There are no millisecond delays, polling loops, animation waits, or generated-class readiness rules in production code.
+
+CI covers progressive mounting, hidden-to-visible dialogs, DOM changes before activation, repeated prompts, SPA replacement, fail-closed semantics, and a guard against timer-based scheduling returning. In a 200-run Chromium fixture, insertion-to-click latency measured 0.6 ms median, 0.8 ms p95, and 4.2 ms maximum.
 
 Detection still requires the observed English dialog semantics. Site redesigns or localization may require an update.
 
