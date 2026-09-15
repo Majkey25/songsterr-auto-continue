@@ -60,10 +60,8 @@
       pending.add(target);
       requestAnimationFrame(() => requestAnimationFrame(() => {
         Promise.allSettled(dialog.getAnimations().map((animation) => animation.finished)).then(() => {
-          setTimeout(() => {
-            pending.delete(target);
-            continueDialog(dialog, true);
-          }, 0);
+          pending.delete(target);
+          continueDialog(dialog, true);
         });
       }));
       return;
@@ -74,20 +72,12 @@
       return;
     }
 
-    pending.add(target);
+    handled.add(target);
     const preventAnchorNavigation = (event) => event.preventDefault();
     if (target.matches("a[href]")) {
       target.addEventListener("click", preventAnchorNavigation, { capture: true, once: true });
     }
     target.click();
-    setTimeout(() => {
-      pending.delete(target);
-      if (!dialog.isConnected) {
-        handled.add(target);
-        return;
-      }
-      continueDialog(dialog, true);
-    }, 100);
   }
 
   function collect(node, dialogs) {
