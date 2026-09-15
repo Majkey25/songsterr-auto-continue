@@ -70,10 +70,10 @@ test("handles every repeated prompt with the same late-mounted site handler", as
           event.preventDefault();
           window.activations++;
           dialog.remove();
-        }, { once: true }), 250);
+        }, { once: true }), 700);
       }, modal);
 
-      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 1500 });
+      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 2200 });
       assert.equal(await page.evaluate(() => window.activations), i);
     }
   });
