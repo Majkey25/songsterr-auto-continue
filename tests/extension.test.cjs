@@ -148,7 +148,7 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await page.locator('[role="dialog"]').waitFor({ state: "detached" });
       await count(1);
     });
-    await t.test("revalidates before a queued click", async () => {
+    await t.test("revalidates against DOM changes before observer delivery", async () => {
       await reset();
       await page.evaluate((html) => {
         document.querySelector("#app").innerHTML = html;
@@ -157,38 +157,23 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await page.evaluate(() => new Promise(requestAnimationFrame));
       await count(0);
     });
-    await t.test("waits for native entry animation before activating", async () => {
+    await t.test("CSS animation does not impose an artificial wait", async () => {
       await reset();
       await page.evaluate((html) => {
-        document.querySelector("#app").innerHTML = '<style>@keyframes enter {from {opacity:0} to {opacity:1}} form {animation: enter 0.1s}</style>' + html;
-        window.clickedDuringAnimation = null;
-        document.querySelector('a[href=""]').addEventListener("click", () => {
-          window.clickedDuringAnimation = document.querySelector("form").getAnimations().some((a) => a.playState === "running");
-        });
+        window.started = performance.now();
+        document.querySelector("#app").innerHTML = '<style>@keyframes enter {from {opacity:.5} to {opacity:1}} form {animation: enter 2s}</style>' + html;
       }, modal);
       await count(1);
-      assert.equal(await page.evaluate(() => window.clickedDuringAnimation), false);
+      assert.ok((await page.evaluate(() => window.clicks[0].latency)) < 150);
     });
-    await t.test("waits for site entry state after CSS animation finishes", async () => {
+    await t.test("hashed entry classes do not control readiness", async () => {
       await reset();
       await page.evaluate((html) => {
-        document.querySelector("#app").innerHTML = html;
-        const dialog = document.querySelector("form");
-        dialog.classList.add("changedHash_enter", "changedHash_enterActive");
-        window.clickedWhileEntering = null;
-        dialog.querySelector('a[href=""]').addEventListener("click", () => {
-          window.clickedWhileEntering = dialog.classList.contains("changedHash_enter");
-        });
-        setTimeout(() => dialog.classList.remove("changedHash_enter", "changedHash_enterActive"), 150);
+        window.started = performance.now();
+        document.querySelector("#app").innerHTML = html.replace('class="w_eHuW_modal"', 'class="anything_enter anything_enterActive"');
       }, modal);
       await count(1);
-      assert.equal(await page.evaluate(() => window.clickedWhileEntering), false);
-    });
-    await t.test("stale entry-active class does not block a settled dialog", async () => {
-      await reset();
-      await insert(modal.replace('class="w_eHuW_modal"', 'class="w_eHuW_modal e7HakW_enterActive"'));
-      await page.waitForFunction(() => window.clicks.length === 1, undefined, { timeout: 1500 });
-      await count(1);
+      assert.ok((await page.evaluate(() => window.clicks[0].latency)) < 150);
     });
     await t.test("another origin is excluded by the manifest", async () => {
       await context.route("https://example.com/**", (route) => route.fulfill({
