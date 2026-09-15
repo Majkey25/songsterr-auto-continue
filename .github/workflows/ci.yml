@@ -23,6 +23,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npm test
+      - run: node --test tests/visibility-attributes.test.cjs
       - run: python scripts/package.py
 
   release:
