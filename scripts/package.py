@@ -14,8 +14,14 @@ if tag.startswith("refs/tags/") and tag != f"refs/tags/v{version}":
 destination = root / "dist"
 destination.mkdir(exist_ok=True)
 archive = destination / f"songsterr-auto-continue-{version}.zip"
+
+runtime_files = ["manifest.json", *manifest["icons"].values()]
+for content_script in manifest.get("content_scripts", []):
+    runtime_files.extend(content_script.get("js", []))
+runtime_files = list(dict.fromkeys(runtime_files))
+
 with ZipFile(archive, "w", compression=ZIP_DEFLATED) as bundle:
-    for source in ("manifest.json", "content.js", *manifest["icons"].values()):
+    for source in runtime_files:
         bundle.write(root / "extension" / source, source)
     for source in ("README.md", "LICENSE"):
         bundle.write(root / source, source)
