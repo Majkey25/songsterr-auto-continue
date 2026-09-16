@@ -24,6 +24,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: node --test tests/visibility-attributes.test.cjs
+      - run: python tests/package_test.py
       - run: python scripts/package.py
 
   release:
