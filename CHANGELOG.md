@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5 - 2026-09-16
+
+- Fixed intermittent prompts that appeared before Songsterr attached the page click handler.
+- Split activation into a tiny MAIN-world bridge while keeping semantic dialog detection in the isolated content script.
+- Retries only the exact validated free continuation target on animation frames until the page handler consumes the click or the prompt changes/disappears.
+- Keeps empty-link fallback navigation suppressed during unsuccessful probes without using millisecond delays or generated CSS classes.
+- Added a regression covering handlers that become ready several render frames after the prompt appears with no intervening DOM mutation.
+
 ## 0.1.4 - 2026-09-15
 
 - Replaced fixed timing and animation waits with DOM-driven continuation handling.

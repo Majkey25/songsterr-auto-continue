@@ -9,7 +9,7 @@ Automatically clicks **“continue with sync pauses”** when Songsterr interrup
 
 [![Download latest version](https://img.shields.io/badge/Download-latest%20version-2ea44f?style=for-the-badge&logo=github)](https://github.com/Majkey25/songsterr-auto-continue/releases/latest)
 
-No settings, background worker, polling, analytics, network requests, or runtime dependencies. The extension runs only on `https://www.songsterr.com/*` and requests no additional permissions.
+No settings, background worker, analytics, network requests, or runtime dependencies. The extension runs only on `https://www.songsterr.com/*` and requests no additional permissions.
 
 ## Install in Brave / Chrome
 
@@ -25,7 +25,9 @@ To update, extract the new release, use **Reload** on the extension card, then r
 
 ## Behavior
 
-The extension watches newly inserted dialogs and text changes. It requires the exact English continuation text, the expected Original Audio heading, and the **Use Synth** + **Upgrade** controls in the same dialog. It waits for the site's entry state to finish, rechecks the target, then clicks once per element.
+The isolated content script watches Songsterr dialog mutations and validates the exact English free-continuation semantics: the continuation text, the Original Audio heading, and the **Use Synth** + **Upgrade** controls in the same visible dialog. Generated CSS classes are not used.
+
+After validation, a tiny MAIN-world bridge activates only that free continuation target. If Songsterr has rendered the prompt before attaching its own click handler, the bridge retries on animation frames while the same validated prompt remains present. It stops as soon as Songsterr consumes the click or the target changes/disappears. There are no fixed millisecond delays.
 
 It never clicks Upgrade or Use Synth, changes subscriptions, hides dialogs, removes ads, or bypasses the actual sync pauses. It has no relationship with Songsterr.
 

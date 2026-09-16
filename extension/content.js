@@ -1,9 +1,9 @@
 (() => {
   "use strict";
 
+  const requestEvent = "songsterr-auto-continue:request";
   const dialogSelector = 'dialog, [role="dialog"], [aria-modal="true"]';
   const controlSelector = 'a, button, [role="button"]';
-  const handled = new WeakSet();
   const queued = new Set();
   const channel = new MessageChannel();
   let flushScheduled = false;
@@ -21,7 +21,7 @@
       (element) => element instanceof HTMLElement && element.closest(dialogSelector) === dialog,
     );
     const target = controls.find((element) => normalize(element.innerText) === "continue with sync pauses");
-    if (!target || handled.has(target)) return null;
+    if (!target) return null;
     if (target.matches("a[href]") && !["", "#"].includes(target.getAttribute("href"))) return null;
     if (target.matches("button") && target.type !== "button") return null;
 
@@ -37,15 +37,10 @@
     return target;
   }
 
-  function dismiss(dialog) {
+  function signal(dialog) {
     const target = matchDialog(dialog);
     if (!target) return;
-
-    handled.add(target);
-    if (target.matches("a[href]")) {
-      target.addEventListener("click", (event) => event.preventDefault(), { capture: true, once: true });
-    }
-    target.click();
+    target.dispatchEvent(new Event(requestEvent, { bubbles: true, composed: true }));
   }
 
   function schedule(dialog) {
@@ -60,7 +55,7 @@
     flushScheduled = false;
     const dialogs = [...queued];
     queued.clear();
-    for (const dialog of dialogs) dismiss(dialog);
+    for (const dialog of dialogs) signal(dialog);
   };
 
   function collect(node, dialogs) {

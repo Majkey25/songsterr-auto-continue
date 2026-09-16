@@ -36,11 +36,11 @@ async function withBrowser(fn) {
   }
 }
 
-test("production is driven by DOM state, not wall-clock timing", async () => {
+test("production avoids wall-clock timing guesses", async () => {
   const source = await readFile(path.resolve("extension/content.js"), "utf8");
 
   assert.match(source, /MutationObserver/);
-  for (const timingPrimitive of ["setTimeout(", "setInterval(", "requestAnimationFrame(", ".getAnimations(", "_enter"]) {
+  for (const timingPrimitive of ["setTimeout(", "setInterval(", ".getAnimations(", "_enter"]) {
     assert.ok(!source.includes(timingPrimitive), `production still depends on ${timingPrimitive}`);
   }
 });
@@ -115,6 +115,38 @@ test("handles every repeated prompt when the site handler is attached in the sam
 
       await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 1000 });
       assert.equal(await page.evaluate(() => window.activations), i);
+    }
+  });
+});
+
+test("retries exact prompt until a later-frame Songsterr handler is ready without DOM mutation", async () => {
+  await withBrowser(async (page) => {
+    await page.evaluate(() => { window.activations = 0; });
+    const frameDelays = [1, 5, 2, 8, 3, 1, 6, 4, 7, 2, 5, 3];
+
+    for (let i = 0; i < frameDelays.length; i++) {
+      await page.evaluate(({ html, frames }) => {
+        const app = document.querySelector("#app");
+        app.innerHTML = html.replace('style="display:none"', 'style="display:block"');
+        const dialog = app.querySelector('[role="dialog"]');
+        const target = dialog.querySelector('a[href=""]');
+
+        const attach = (remaining) => {
+          if (remaining > 0) {
+            requestAnimationFrame(() => attach(remaining - 1));
+            return;
+          }
+          target.addEventListener("click", (event) => {
+            event.preventDefault();
+            window.activations++;
+            dialog.remove();
+          }, { once: true });
+        };
+        attach(frames);
+      }, { html: modal, frames: frameDelays[i] });
+
+      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 1500 });
+      assert.equal(await page.evaluate(() => window.activations), i + 1);
     }
   });
 });

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Songsterr Auto Continue",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Automatically chooses Songsterr's free 'continue with sync pauses' action. Normal sync pauses remain.",
   "homepage_url": "https://github.com/Majkey25/songsterr-auto-continue",
   "icons": {
@@ -10,9 +10,17 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "content_scripts": [{
-    "matches": ["https://www.songsterr.com/*"],
-    "js": ["content.js"],
-    "run_at": "document_start"
-  }]
+  "content_scripts": [
+    {
+      "matches": ["https://www.songsterr.com/*"],
+      "js": ["main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.songsterr.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
 }
