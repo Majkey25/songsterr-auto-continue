@@ -1,103 +1,77 @@
 # Engineering evidence
 
-Observed on 2026-09-12. This report separates controlled browser tests from real Songsterr behavior.
+This report separates controlled browser tests from real Songsterr behavior. The current implementation is version 0.1.5.
 
-## Live DOM
+## Observed Songsterr prompt
 
-On the English [Stairway to Heaven tab](https://www.songsterr.com/a/wsa/led-zeppelin-stairway-to-heaven-tab-s27), a signed-out Original Audio session produced:
+The English free Original Audio interruption has been observed with this semantic structure:
 
 ```html
-<form role="dialog" class="w_eHuW_modal">
-  <div class="_2e9mvq_popup">
-    <!-- Layout wrappers omitted -->
-    <p>Upgrade to Plus for Original audio without sync pauses</p>
-    <p>Or switch to Synth audio</p>
-    <button aria-label="Use Synth" type="button">Use Synth</button>
-    <a href="/plus">Upgrade</a>
-    <p class="w_eHuW_continueLink">Or <a href="">continue with sync pauses</a></p>
-  </div>
+<form role="dialog">
+  <p>Upgrade to Plus for Original audio without sync pauses</p>
+  <p>Or switch to Synth audio</p>
+  <button type="button">Use Synth</button>
+  <a href="/plus">Upgrade</a>
+  <p>Or <a href="">continue with sync pauses</a></p>
 </form>
 ```
 
-The continuation anchor had no ID, role override, ARIA label, or data identifier. Its empty `href` distinguished it from the Upgrade navigation. The dialog was outside `#apptab`, inside a `display: contents` wrapper. No Shadow DOM was involved in this control. The generated `popupRedesign` and `modalRedesign` classes from the supplied brief were absent in the initial session. The current page contains a Preact application, rather than a React-specific requirement.
+The continuation anchor exposes no stable ID or language-independent action identifier. The empty `href` distinguishes it from Upgrade navigation. Generated CSS classes are intentionally not part of the production contract.
 
-The loaded [ConstraintsModal module](https://static3.songsterr.com/production-main/static3/latest/ConstraintsModal-BURZ5_JjaxUbJVVj.js) confirms that the free anchor invokes the site's ordinary layer-close action. Its unmount cleanup invokes the normal constraints-modal close action. The same module contains ten non-English translations; this release deliberately recognizes English only. No stable language-independent action ID was exposed in the observed DOM.
+## 0.1.5 architecture
 
-## Implementation
+The extension now uses two minimal Manifest V3 content-script worlds.
 
-The semantic contract is a dialog marker + exact normalized continuation text + exact visible heading + Use Synth and Upgrade controls. Generated classes are not used. Ancestor matching stops at the nearest dialog and rejects BODY/HTML as context. Hidden, inert, disabled, nested unrelated, navigation, and submit controls are rejected.
+`content.js` runs in the normal isolated extension world. It observes the document from `document_start`, collects only affected dialogs, and validates the complete free-continuation context. The candidate must be visible and enabled, have the exact normalized English continuation text, live inside a dialog containing the expected Original Audio heading plus visible **Use Synth** and **Upgrade** controls, and be a non-navigating anchor or non-submit button. Unknown or incomplete states fail closed.
 
-One observer starts at `document_start` on `document`, so a replaced app root cannot detach it. It examines added subtrees and the nearest dialog affected by a mutation, batches dialogs in a Set, and performs one initial scan. `characterData` also supports delayed text and context. Global attribute changes are not observed because the live prompt is inserted/removed, not toggled from a permanently hidden node.
+Once the target is validated, `content.js` emits a private DOM event on that exact element. `main.js` runs with `world: "MAIN"`, revalidates the same semantic contract in Songsterr's page world, and performs the native click there.
 
-When the validated dialog has a class ending in `_enter`, a temporary observer waits for that transition-state marker to clear. It watches only that dialog's `class` attribute and disconnects after at most one second. A lone `_enterActive` marker is ignored because late animation frames can leave it on a settled dialog. The generated class prefix is irrelevant. Two animation frames and native animation completion then allow mounting to finish before revalidation and one click. WeakSets prevent duplicate scheduling and repeated activation of the same element. Nothing is scheduled when no matching dialog exists.
+The MAIN-world bridge exists because controlled Chromium reproduction showed a real race class that cannot be observed from DOM mutations alone: a prompt can already be fully rendered while the site's click handler is attached several render frames later with no intervening DOM change. A one-shot isolated-world click therefore can be too early.
 
-The public transition implementation maintains its own entry state beyond CSS completion. Waiting for that state is a conservative mounting safeguard. Early investigations incorrectly attributed navigation failures to click timing: the harness was operating Songsterr's read-only radio input instead of its surrounding source-toggle control. Correcting that interaction produced a successful complete live run without adding mouse events or changing execution worlds. Those early failures do not establish that all these timing safeguards are necessary. Regression scenarios cover delayed handler attachment, native animations, entry state outlasting animation, and changed targets.
+For that case the bridge probes the same validated target once per animation frame. It stops immediately when the page consumes/cancels the click, removes the target/dialog, or the semantic target changes. The empty-link browser fallback is prevented on unsuccessful probes. There is no hard-coded millisecond delay, generated-class readiness rule, background interval, network interception, CSS hiding, or alternate-control fallback.
 
-No prehide CSS is shipped. The extension leaves the site's blur, blocker, pause timing, entitlements, and API responses to Songsterr. No measured evidence justifies hiding additional UI.
+## TDD reproduction
+
+Before changing production code, a regression was added that mounts twelve prompts and attaches the Songsterr-like handler after different numbers of animation frames without changing the DOM. Version 0.1.4 fails that regression because it activates the target only once. That RED failure was confirmed in GitHub Actions before the 0.1.5 implementation was introduced.
+
+Several simpler retry approaches were rejected during development because they produced duplicate clicks in the existing browser suite. The accepted split-world design is the first tested architecture that satisfies both constraints: late-handler prompts are retried, while already-consumed prompts remain single-activation behavior.
 
 ## Controlled browser checks
 
-For 0.1.1, both actual unpacked-extension runs passed **32 scenarios**, reported by Node as 33 tests including the parent test. Fixtures are served at a Songsterr-matching URL; the real manifest injects the extension in its isolated world. No page-script substitute is used.
+CI loads the actual unpacked MV3 extension into Chromium rather than substituting a page-script mock. Current coverage includes:
 
-Covered: observed markup, changed classes, whitespace/case/NBSP, nested text, button and ARIA-button targets, `aria-modal`, unrelated dialogs, missing context, near matches, navigation/submit controls, hidden/inert/disabled controls, nested dialogs, unknown localization, delayed insertion/text/context, repeat replacement prompts, SPA root replacement, detached nodes, delayed handler mount, queued-target changes, normal neighboring controls, and another origin excluded by the manifest. No page exceptions occurred.
+- observed English markup and changed generated classes
+- whitespace/case/NBSP and nested target text
+- anchor, button, ARIA button and `aria-modal` variants
+- unrelated, incomplete, localized, hidden, inert, disabled, navigation and submit negatives
+- progressive mounting and attribute-only visibility changes
+- delayed target/text/context insertion
+- repeated replacement prompts and SPA root replacement
+- DOM revalidation before activation
+- late page-handler attachment across multiple animation frames without DOM mutation
+- another origin excluded by the manifest
+- syntax checks for both production scripts and release packaging
 
-Insertion-to-click timing uses `performance.now()` immediately before fixture insertion and in the capture listener. Each browser ran 200 insertions:
+The 0.1.5 PR's complete CI run passed `npm run check`, the main Chromium suite, the visibility/readiness suite, and packaging.
 
-| Browser engine | Minimum | Median | p95 | Maximum |
-| --- | ---: | ---: | ---: | ---: |
-| Chromium 151.0.7922.34 | 3.90 ms | 11.00 ms | 11.80 ms | 13.30 ms |
-| Brave / Chromium 152.0.7977.83 | 7.90 ms | 11.10 ms | 11.80 ms | 12.30 ms |
+Synthetic insertion-to-first-click measurements remain sub-millisecond in the existing fixture on Chromium. Those figures describe a controlled headless fixture only; they are not a guarantee about live paint timing, background tabs, hardware, or Songsterr's own rendering work.
 
-These are synthetic headless measurements without an entry animation on one Windows host. They are not guarantees about the live site's paint timing, throttled tabs, or other hardware. The live site's entry state lasts roughly 200 ms and adds its own delay. No trace established zero visible frames. No CPU-wakeup comparison was measured.
+## Real Songsterr checks
 
-Commands:
+Earlier versions achieved a complete live Brave run on free Original Audio, including multiple automatic continuations and internal navigation, while leaving normal sync pauses intact. Later automated live attempts were sometimes inconclusive because embedded YouTube playback remained at time 0 / readyState 0 and therefore never generated the prompt. Those stalled runs are not treated as successful live validation.
 
-```sh
-npm run check
-npm test
-node tests/extension.test.cjs "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
-python scripts/package.py
-```
+Version 0.1.5's late-handler fix is therefore verified by reproducible real-browser fixtures that model the observed race class, not by a claimed fresh end-to-end Songsterr playback run.
 
-## Real Songsterr check
+## Safety boundary
 
-### 0.1.1 reported failure
-
-Inspection of the reported redesigned dialog in an existing Brave session showed correct English text, visible controls, and no active native animations. The installed 0.1.0 detector nevertheless classified `w_eHuW_modal w_eHuW_modalRedesign e7HakW_enterActive` as still entering. Its one-second observer expired without clicking because that stale class never cleared. A fixture retaining only `e7HakW_enterActive` reproduced the failure before the fix and passed afterward. The fix changes only the entry-state predicate; it adds no alternate text matching or extra click events.
-
-The existing tab also initially lacked the installed content script. Reloading Songsterr loaded it. Extension updates require reloading the extension card and then the website tab.
-
-### 0.1.0 baseline
-
-The final isolated-world unpacked extension passed the complete live script in Brave:
-
-1. [Master of Puppets](https://www.songsterr.com/a/wsa/metallica-master-of-puppets-tab-s455118): automatic clicks at 19.189 s and 30.460 s after navigation; both dialogs removed after exit.
-2. Pause responded normally.
-3. Internal navigation through Search to [Enter Sandman](https://www.songsterr.com/a/wsa/metallica-enter-sandman-tab-s19): a third automatic continuation, dialog removed, Original Audio still selected, playback active.
-
-The process exited successfully. No page exceptions were recorded before navigation. Site and YouTube requests were not intercepted. This is one complete clean live run, plus repeated first-song checks; it is not an exhaustive reliability or frame-paint study.
-
-Some isolated-browser attempts stalled with the YouTube video at time 0 / readyState 0 and produced no prompt within three minutes. These runs are not counted as successful checks. A final attempt to evaluate a shorter activation delay was likewise inconclusive because playback stalled, so the proven implementation was retained. The live script fails when it does not observe the required cycles; it never substitutes synthetic prompts for live acceptance.
-
-Live command:
-
-```sh
-node tests/live.cjs "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe" "https://www.songsterr.com/a/wsa/metallica-master-of-puppets-tab-s455118"
-```
-
-## Prior art comparison
-
-[Better Songsterr](https://github.com/Josie5734/better-songsterr/blob/main/addon/content.js) uses a generated selector, observes `#apptab`, and hides several global classes. [Popup Auto Clicker](https://github.com/WeWake1/Clicker_ChromeExtension/blob/main/chrome-extension-auto-clicker/content.js) polls every second, adds 500 ms delay, and sends native plus synthetic click events. Both also include unrelated ad changes. Their source was inspected; they were not installed, copied, or benchmarked. This extension keeps the free action while adding context validation and avoiding those unrelated behaviors.
+The extension only automates Songsterr's existing free **continue with sync pauses** action. It does not click Upgrade or Use Synth, alter entitlements, intercept API responses, remove the actual sync pauses, hide advertising, or modify subscription state. It requests no extra extension permissions and has no runtime dependencies, telemetry, storage, background worker, or extension-origin network requests.
 
 ## Limits
 
-- English wording and dialog semantics are required; a site redesign can disable recognition.
-- Renaming the transition-state suffixes could invalidate the mount-readiness check.
-- An already handled DOM element reused for a later prompt is not clicked again. The observed flow creates replacement elements.
-- Attribute-only visibility changes and text without a later DOM mutation are not retried.
-- Background tabs can delay animation frames. An animation that never finishes leaves the prompt for manual use.
-- A failed click is not repeated blindly; the real dialog remains available for manual use.
-- Zero flicker, background-tab latency, and all localized site variants are unverified.
-- Static content-script access covers `https://www.songsterr.com/*` only, with no additional permissions, background worker, storage, telemetry, or extension network requests.
+- The observed English wording and dialog semantics are required. Localization or a site redesign may require an update.
+- Animation-frame scheduling can be throttled in background tabs.
+- The MAIN-world bridge intentionally runs only on Songsterr and exposes no generic page API.
+- Zero visible frames cannot be guaranteed because the prompt may paint before the page handler becomes ready.
+- A live Songsterr/YouTube acceptance run for 0.1.5 remains unavailable when the test environment cannot start embedded playback.
 
-Browser APIs: [Chrome content scripts](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts), [MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver), [Element.checkVisibility](https://developer.mozilla.org/en-US/docs/Web/API/Element/checkVisibility), [Playwright extension loading](https://playwright.dev/docs/chrome-extensions).
+Browser APIs used: Manifest V3 content scripts, `world: "MAIN"`, `MutationObserver`, `Element.checkVisibility`, DOM events, and `requestAnimationFrame`.
