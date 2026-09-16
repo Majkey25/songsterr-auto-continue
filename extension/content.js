@@ -1,9 +1,9 @@
 (() => {
   "use strict";
 
+  const requestEvent = "songsterr-auto-continue:request";
   const dialogSelector = 'dialog, [role="dialog"], [aria-modal="true"]';
   const controlSelector = 'a, button, [role="button"]';
-  const retrying = new WeakSet();
   const queued = new Set();
   const channel = new MessageChannel();
   let flushScheduled = false;
@@ -37,45 +37,10 @@
     return target;
   }
 
-  function activate(target) {
-    const isAnchor = target.matches("a[href]");
-    const href = isAnchor ? target.getAttribute("href") : null;
-    if (isAnchor) target.removeAttribute("href");
-
-    const event = new MouseEvent("click", {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      view: window,
-      button: 0,
-    });
-    const uncanceled = target.dispatchEvent(event);
-
-    if (isAnchor && target.isConnected) target.setAttribute("href", href);
-    return !uncanceled || !target.isConnected;
-  }
-
-  function dismiss(dialog) {
+  function signal(dialog) {
     const target = matchDialog(dialog);
-    if (!target || retrying.has(target)) return;
-
-    retrying.add(target);
-    const attempt = () => {
-      const current = matchDialog(dialog);
-      if (current !== target) {
-        retrying.delete(target);
-        if (current) dismiss(dialog);
-        return;
-      }
-
-      if (activate(target)) {
-        retrying.delete(target);
-        return;
-      }
-      requestAnimationFrame(attempt);
-    };
-
-    attempt();
+    if (!target) return;
+    target.dispatchEvent(new Event(requestEvent, { bubbles: true, composed: true }));
   }
 
   function schedule(dialog) {
@@ -90,7 +55,7 @@
     flushScheduled = false;
     const dialogs = [...queued];
     queued.clear();
-    for (const dialog of dialogs) dismiss(dialog);
+    for (const dialog of dialogs) signal(dialog);
   };
 
   function collect(node, dialogs) {
