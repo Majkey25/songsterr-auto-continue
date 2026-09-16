@@ -37,20 +37,22 @@
     return target;
   }
 
-  function click(target) {
-    let seen = false;
-    let consumed = false;
-    const guard = (event) => {
-      if (event.target !== target) return;
-      seen = true;
-      consumed = event.defaultPrevented;
-      if (target.matches("a[href]") && !event.defaultPrevented) event.preventDefault();
-    };
+  function activate(target) {
+    const isAnchor = target.matches("a[href]");
+    const href = isAnchor ? target.getAttribute("href") : null;
+    if (isAnchor) target.removeAttribute("href");
 
-    document.addEventListener("click", guard, { once: true });
-    target.click();
-    document.removeEventListener("click", guard);
-    return !seen || consumed || !target.isConnected;
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      button: 0,
+    });
+    const uncanceled = target.dispatchEvent(event);
+
+    if (isAnchor && target.isConnected) target.setAttribute("href", href);
+    return !uncanceled || !target.isConnected;
   }
 
   function dismiss(dialog) {
@@ -66,7 +68,7 @@
         return;
       }
 
-      if (click(target)) {
+      if (activate(target)) {
         retrying.delete(target);
         return;
       }
