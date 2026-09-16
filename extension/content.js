@@ -3,7 +3,7 @@
 
   const dialogSelector = 'dialog, [role="dialog"], [aria-modal="true"]';
   const controlSelector = 'a, button, [role="button"]';
-  const handled = new WeakSet();
+  const retrying = new WeakSet();
   const queued = new Set();
   const channel = new MessageChannel();
   let flushScheduled = false;
@@ -21,7 +21,7 @@
       (element) => element instanceof HTMLElement && element.closest(dialogSelector) === dialog,
     );
     const target = controls.find((element) => normalize(element.innerText) === "continue with sync pauses");
-    if (!target || handled.has(target)) return null;
+    if (!target) return null;
     if (target.matches("a[href]") && !["", "#"].includes(target.getAttribute("href"))) return null;
     if (target.matches("button") && target.type !== "button") return null;
 
@@ -37,15 +37,31 @@
     return target;
   }
 
-  function dismiss(dialog) {
-    const target = matchDialog(dialog);
-    if (!target) return;
-
-    handled.add(target);
+  function click(target) {
     if (target.matches("a[href]")) {
       target.addEventListener("click", (event) => event.preventDefault(), { capture: true, once: true });
     }
     target.click();
+  }
+
+  function dismiss(dialog) {
+    const target = matchDialog(dialog);
+    if (!target || retrying.has(target)) return;
+
+    retrying.add(target);
+    const attempt = () => {
+      const current = matchDialog(dialog);
+      if (current !== target) {
+        retrying.delete(target);
+        if (current) dismiss(dialog);
+        return;
+      }
+
+      click(target);
+      requestAnimationFrame(attempt);
+    };
+
+    attempt();
   }
 
   function schedule(dialog) {
