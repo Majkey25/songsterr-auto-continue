@@ -38,10 +38,19 @@
   }
 
   function click(target) {
-    if (target.matches("a[href]")) {
-      target.addEventListener("click", (event) => event.preventDefault(), { capture: true, once: true });
-    }
+    let seen = false;
+    let consumed = false;
+    const guard = (event) => {
+      if (event.target !== target) return;
+      seen = true;
+      consumed = event.defaultPrevented;
+      if (target.matches("a[href]") && !event.defaultPrevented) event.preventDefault();
+    };
+
+    document.addEventListener("click", guard, { once: true });
     target.click();
+    document.removeEventListener("click", guard);
+    return !seen || consumed || !target.isConnected;
   }
 
   function dismiss(dialog) {
@@ -57,7 +66,10 @@
         return;
       }
 
-      click(target);
+      if (click(target)) {
+        retrying.delete(target);
+        return;
+      }
       requestAnimationFrame(attempt);
     };
 
