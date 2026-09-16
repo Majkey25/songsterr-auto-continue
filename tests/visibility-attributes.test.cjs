@@ -118,3 +118,23 @@ test("handles every repeated prompt when the site handler is attached in the sam
     }
   });
 });
+
+test("handles a prompt when the site click handler is attached in a later task", async () => {
+  await withBrowser(async (page) => {
+    await page.evaluate(() => { window.activations = 0; });
+    await page.evaluate((html) => {
+      const app = document.querySelector("#app");
+      app.innerHTML = html.replace('style="display:none"', 'style="display:block"');
+      const dialog = app.querySelector('[role="dialog"]');
+      const target = dialog.querySelector('a[href=""]');
+      setTimeout(() => target.addEventListener("click", (event) => {
+        event.preventDefault();
+        window.activations++;
+        dialog.remove();
+      }, { once: true }), 25);
+    }, modal);
+
+    await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 1000 });
+    assert.equal(await page.evaluate(() => window.activations), 1);
+  });
+});
