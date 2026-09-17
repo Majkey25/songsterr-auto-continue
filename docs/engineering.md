@@ -1,66 +1,67 @@
 # Engineering evidence
 
-This report separates controlled browser tests from real Songsterr behavior. The current implementation is version 0.1.5.
+This report separates controlled browser tests from real Songsterr behavior. The current implementation is version 0.1.7.
 
-## Observed Songsterr prompt
+## Current Songsterr prompt
 
-The English free Original Audio interruption has been observed with this semantic structure:
+The current English free Original Audio interruption has been observed with a generated-class structure equivalent to:
 
 ```html
-<form role="dialog">
-  <p>Upgrade to Plus for Original audio without sync pauses</p>
-  <p>Or switch to Synth audio</p>
-  <button type="button">Use Synth</button>
-  <a href="/plus">Upgrade</a>
-  <p>Or <a href="">continue with sync pauses</a></p>
-</form>
+<div class="w_eHuW_modal w_eHuW_modalRedesign">
+  <div class="_2e9mvq_popup w_eHuW_popupRedesign">
+    <p>Upgrade to Plus for Original audio without sync pauses</p>
+    <p>Or switch to Synth audio</p>
+    <button type="button">Use Synth</button>
+    <a href="/plus">Upgrade</a>
+    <p class="w_eHuW_continueLink">Or <a href="">continue with sync pauses</a></p>
+  </div>
+</div>
 ```
 
-The continuation anchor exposes no stable ID or language-independent action identifier. The empty `href` distinguishes it from Upgrade navigation. Generated CSS classes are intentionally not part of the production contract.
+The important change for this extension is that the current popup is not required to expose the older `role="dialog"` contract. Independent Songsterr tools in active public repositories also target the current `.w_eHuW_continueLink` continuation wrapper or scan for the exact continuation text.
 
-## 0.1.5 architecture
+## v0.1.7 architecture
 
-The extension now uses two minimal Manifest V3 content-script worlds.
+Version 0.1.7 uses one Manifest V3 isolated content script instead of the v0.1.5/v0.1.6 split isolated/MAIN-world bridge.
 
-`content.js` runs in the normal isolated extension world. It observes the document from `document_start`, collects only affected dialogs, and validates the complete free-continuation context. The candidate must be visible and enabled, have the exact normalized English continuation text, live inside a dialog containing the expected Original Audio heading plus visible **Use Synth** and **Upgrade** controls, and be a non-navigating anchor or non-submit button. Unknown or incomplete states fail closed.
+The primary detector looks for Songsterr's current `.w_eHuW_continueLink` wrapper and still validates that its action is visible, enabled, has exact normalized English text **continue with sync pauses**, and cannot navigate away to a Plus page. This path deliberately does not depend on the popup's role or headline copy.
 
-Once the target is validated, `content.js` emits a private DOM event on that exact element. `main.js` runs with `world: "MAIN"`, revalidates the same semantic contract in Songsterr's page world, and performs the native click there.
+A conservative legacy fallback keeps the older semantic dialog detection for previous markup. That path continues to require the expected Original Audio headline plus **Use Synth** and **Upgrade** controls before activating the free continuation target.
 
-The MAIN-world bridge exists because controlled Chromium reproduction showed a real race class that cannot be observed from DOM mutations alone: a prompt can already be fully rendered while the site's click handler is attached several render frames later with no intervening DOM change. A one-shot isolated-world click therefore can be too early.
+The click probe remains condition-driven rather than based on fixed millisecond delays. If the prompt appears before Songsterr attaches its handler, the same validated target can be retried on animation frames. Probes stop when Songsterr consumes/cancels the click, removes the target, the target stops matching, or the bounded retry window expires. Empty-link browser navigation is prevented on unsuccessful probes without stopping event propagation.
 
-For that case the bridge probes the same validated target once per animation frame. It stops immediately when the page consumes/cancels the click, removes the target/dialog, or the semantic target changes. The empty-link browser fallback is prevented on unsuccessful probes. There is no hard-coded millisecond delay, generated-class readiness rule, background interval, network interception, CSS hiding, or alternate-control fallback.
+There is no CSS popup hiding, network interception, background interval, entitlement change, or fallback to Upgrade/Use Synth.
 
 ## TDD reproduction
 
-Before changing production code, a regression was added that mounts twelve prompts and attaches the Songsterr-like handler after different numbers of animation frames without changing the DOM. Version 0.1.4 fails that regression because it activates the target only once. That RED failure was confirmed in GitHub Actions before the 0.1.5 implementation was introduced.
+Before the v0.1.7 production change, a real unpacked-Chromium regression test mounted the current `.w_eHuW_continueLink` popup without `role="dialog"` and with deliberately changed headline copy. Version 0.1.6 timed out without clicking it, while the existing 31-test browser suite stayed green. This isolated the failure to the old detection gate rather than packaging or extension loading.
 
-Several simpler retry approaches were rejected during development because they produced duplicate clicks in the existing browser suite. The accepted split-world design is the first tested architecture that satisfies both constraints: late-handler prompts are retried, while already-consumed prompts remain single-activation behavior.
+Earlier TDD also reproduces late click-handler attachment across multiple animation frames with no DOM mutation. The v0.1.7 single-script implementation retains coverage for that race.
 
 ## Controlled browser checks
 
-CI loads the actual unpacked MV3 extension into Chromium rather than substituting a page-script mock. Current coverage includes:
+CI loads the actual unpacked MV3 extension into Chromium rather than substituting a page-script mock. Coverage includes:
 
-- observed English markup and changed generated classes
+- current `.w_eHuW_continueLink` popup without a dialog role or fixed headline
+- older semantic dialog markup and changed generated classes
 - whitespace/case/NBSP and nested target text
-- anchor, button, ARIA button and `aria-modal` variants
-- unrelated, incomplete, localized, hidden, inert, disabled, navigation and submit negatives
+- anchor, button, ARIA button and `aria-modal` variants for the legacy path
+- unrelated, localized, hidden, inert, disabled, navigation and submit negatives
 - progressive mounting and attribute-only visibility changes
 - delayed target/text/context insertion
 - repeated replacement prompts and SPA root replacement
 - DOM revalidation before activation
 - late page-handler attachment across multiple animation frames without DOM mutation
 - another origin excluded by the manifest
-- syntax checks for both production scripts and release packaging
+- syntax and release-package completeness checks
 
-The 0.1.5 PR's complete CI run passed `npm run check`, the main Chromium suite, the visibility/readiness suite, and packaging.
-
-Synthetic insertion-to-first-click measurements remain sub-millisecond in the existing fixture on Chromium. Those figures describe a controlled headless fixture only; they are not a guarantee about live paint timing, background tabs, hardware, or Songsterr's own rendering work.
+Synthetic insertion latency from older fixture runs is not a guarantee about live paint timing, background tabs, hardware, or Songsterr rendering work.
 
 ## Real Songsterr checks
 
-Earlier versions achieved a complete live Brave run on free Original Audio, including multiple automatic continuations and internal navigation, while leaving normal sync pauses intact. Later automated live attempts were sometimes inconclusive because embedded YouTube playback remained at time 0 / readyState 0 and therefore never generated the prompt. Those stalled runs are not treated as successful live validation.
+Earlier versions achieved complete live Brave runs on free Original Audio, including multiple automatic continuations and internal navigation, while leaving normal sync pauses intact. Automated live checks can be inconclusive when embedded YouTube playback never starts and therefore never produces the interruption prompt; those stalled runs are not treated as successful validation.
 
-Version 0.1.5's late-handler fix is therefore verified by reproducible real-browser fixtures that model the observed race class, not by a claimed fresh end-to-end Songsterr playback run.
+Version 0.1.7 is therefore gated primarily by reproducible real-browser fixtures matching the current observed popup plus the existing race/safety suite. A user-visible live acceptance check remains useful after installation.
 
 ## Safety boundary
 
@@ -68,10 +69,9 @@ The extension only automates Songsterr's existing free **continue with sync paus
 
 ## Limits
 
-- The observed English wording and dialog semantics are required. Localization or a site redesign may require an update.
+- The continuation action still uses observed English wording. Localization may require an update.
+- The primary path intentionally uses Songsterr's current continuation wrapper; a future redesign can require another selector update.
 - Animation-frame scheduling can be throttled in background tabs.
-- The MAIN-world bridge intentionally runs only on Songsterr and exposes no generic page API.
 - Zero visible frames cannot be guaranteed because the prompt may paint before the page handler becomes ready.
-- A live Songsterr/YouTube acceptance run for 0.1.5 remains unavailable when the test environment cannot start embedded playback.
 
-Browser APIs used: Manifest V3 content scripts, `world: "MAIN"`, `MutationObserver`, `Element.checkVisibility`, DOM events, and `requestAnimationFrame`.
+Browser APIs used: Manifest V3 content scripts, `MutationObserver`, `Element.checkVisibility`, DOM events, `MessageChannel`, and `requestAnimationFrame`.
