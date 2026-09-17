@@ -1,11 +1,11 @@
 {
   "name": "songsterr-auto-continue",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "private": true,
   "description": "Development checks only; the extension has no runtime dependencies.",
   "scripts": {
-    "check": "node --check extension/content.js && node --check extension/main.js",
-    "test": "node --test tests/extension.test.cjs"
+    "check": "node --check extension/content.js",
+    "test": "node --test tests/extension.test.cjs tests/current-popup.test.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

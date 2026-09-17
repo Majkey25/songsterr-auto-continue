@@ -25,13 +25,13 @@ To update, extract the new release, use **Reload** on the extension card, then r
 
 ## Behavior
 
-The isolated content script watches Songsterr dialog mutations and validates the exact English free-continuation semantics: the continuation text, the Original Audio heading, and the **Use Synth** + **Upgrade** controls in the same visible dialog. Generated CSS classes are not used.
+Version 0.1.7 uses one isolated content script. It watches Songsterr DOM changes and first targets the site's current continuation wrapper, `.w_eHuW_continueLink`, while still requiring the exact normalized **continue with sync pauses** action and a safe non-navigation target. This matches the current Plus interruption UI without depending on its dialog role or headline copy.
 
-After validation, a tiny MAIN-world bridge activates only that free continuation target. If Songsterr has rendered the prompt before attaching its own click handler, the bridge retries on animation frames while the same validated prompt remains present. It stops as soon as Songsterr consumes the click or the target changes/disappears. There are no fixed millisecond delays.
+A conservative legacy fallback keeps support for the older semantic dialog shape. If Songsterr renders the target before attaching its click handler, the extension retries the same validated target on animation frames and stops as soon as Songsterr consumes the click, removes the target, or the target becomes invalid. Unsuccessful empty-link clicks have their browser navigation fallback suppressed.
 
-It never clicks Upgrade or Use Synth, changes subscriptions, hides dialogs, removes ads, or bypasses the actual sync pauses. It has no relationship with Songsterr.
+It never clicks Upgrade or Use Synth, changes subscriptions, hides the popup with CSS, removes ads, or bypasses the actual sync pauses. It has no relationship with Songsterr.
 
-Unknown wording, localization, missing context, disabled controls, and hidden dialogs cause it to do nothing. Changed site markup can break detection. A brief visible prompt is possible; zero flicker is not guaranteed.
+Hidden, disabled, navigating, submit, near-match, and localized targets cause it to do nothing. Changed site markup can still require an update. A brief visible prompt is possible; zero flicker is not guaranteed.
 
 ## Verify
 
@@ -50,7 +50,7 @@ npm run check
 npm test
 ```
 
-The tests load the real unpacked extension into isolated Chromium and exercise controlled DOM fixtures. They never replace the extension with a page-script mock. For a local Brave executable:
+The tests load the real unpacked extension into isolated Chromium and exercise controlled DOM fixtures, including the current Songsterr continuation wrapper and delayed page-handler attachment. They never replace the extension with a page-script mock. For a local Brave executable:
 
 ```sh
 node tests/extension.test.cjs "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
@@ -62,8 +62,8 @@ Optional live check, requiring reachable Songsterr and YouTube playback:
 node tests/live.cjs "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
 ```
 
-It uses an isolated temporary profile, observes two real interruption cycles, and saves results under `.reference/tmp/`. It does not run in CI. See [engineering evidence](docs/engineering.md) for measured results and limitations.
+It uses an isolated temporary profile, observes real interruption cycles when playback is available, and saves results under `.reference/tmp/`. It does not run in CI. See [engineering evidence](docs/engineering.md) for measured results and limitations.
 
 ## Releases
 
-Tags follow `vMAJOR.MINOR.PATCH` and must match `extension/manifest.json`. CI tests and packages the extension before publishing tagged releases as standard GitHub releases. Release ZIPs include the runtime files, icons, this README, and the MIT license; development dependencies are excluded. SHA-256 checksums accompany each release.
+CI tests and packages the extension on every pull request and `main` push. After a green `main` run, it publishes the stable `v<manifest version>` GitHub release if that version does not already exist. Release ZIPs include only manifest-referenced runtime files, icons, this README, and the MIT license; SHA-256 checksums accompany each release.
