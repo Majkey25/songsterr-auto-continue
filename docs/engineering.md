@@ -138,8 +138,39 @@ mock:
 
 ## Live acceptance
 
-See the release notes and the pull request for the per-prompt results of the packaged artifact
-against real Songsterr.
+Run on 2026-09-18 against real Songsterr with the packaged 0.1.8 ZIP loaded unpacked into Brave
+153.0.8010.48, a throwaway profile, free Original Audio, no account. "Activations" is how many times
+the extension had to activate the link before Songsterr accepted it.
+
+| # | Phase | Result | Dismissed after | Activations |
+| --- | --- | --- | --- | --- |
+| 1 | song A | PASS | 625 ms | 4 |
+| 2 | song A | PASS | 2420 ms | 13 |
+| 3 | song A | PASS | 817 ms | 5 |
+| 4 | song A | PASS | 615 ms | 4 |
+| 5 | song A | PASS | 2220 ms | 12 |
+| 6 | song A | PASS | 2425 ms | 13 |
+| 7 | song A | PASS | 613 ms | 4 |
+| 8 | song A | PASS | 613 ms | 4 |
+| 9 | song A | PASS | 613 ms | 4 |
+| 10 | song A | PASS | 613 ms | 4 |
+| 11 | song B, after SPA navigation | PASS | 621 ms | 4 |
+| 12 | song B, after SPA navigation | PASS | 613 ms | 4 |
+| 13 | after a full page reload | PASS | 619 ms | 4 |
+| 14 | after a full page reload | PASS | 616 ms | 4 |
+| 15 | second tab | PASS | 627 ms | 4 |
+| 16 | second tab | PASS | 2425 ms | 13 |
+
+16 real interruption prompts, 16 dismissed, 0 missed. Original stayed selected throughout and
+playback continued normally. Recorded activations of anything other than the free continuation -
+Upgrade, Use Synth or any other control inside the prompt - across both tabs: **none** (empty list).
+
+The activation counts are the load-bearing result. **No prompt was ever dismissed by the first
+click**; every one needed between 4 and 13. Songsterr's handler took 0.6 s to become effective in the
+common case and 2.2-2.4 s in the slow case. That also shows the 0.1.7 design could not have worked
+even with a correct success test: it retried for about 30 animation frames, roughly 0.5 s, which is
+shorter than the slow case. The measured worst case leaves roughly a 5x margin inside the current
+12 s budget.
 
 ## Safety boundary
 
@@ -154,8 +185,9 @@ runtime dependencies, telemetry, storage, background worker, or extension-origin
   string before; localization or another rewrite will require an update.
 - Identification needs a visible `/plus` link or a visible Use Synth control in the same dialog. A
   redesign that drops both would require an update.
-- The prompt is briefly visible. Zero visible frames is not achievable, because the page ignores
-  activation until its own handler is ready.
+- The prompt is briefly visible: 0.6 s typically and 2.4 s at worst in the live run above. Zero
+  visible frames is not achievable, because the page ignores activation until its own handler is
+  ready.
 - Timer scheduling can be throttled in background tabs.
 
 Browser APIs used: Manifest V3 content scripts, `MutationObserver`, `Element.checkVisibility`, DOM

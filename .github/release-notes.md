@@ -12,4 +12,10 @@ Identification was also made resilient to changes Songsterr has already shipped.
 
 Hidden, disabled, navigating, submitting, near-match, localized and unrelated targets remain fail-closed. The extension never clicks **Upgrade** or **Use Synth**, never hides the popup with CSS, and does not remove Songsterr's real sync pauses.
 
+Verified against real Songsterr with this exact packaged build in Brave 153.0.8010.48: 16 real
+interruption prompts across one song, a second song, a page reload and a second tab - all 16
+dismissed automatically, none missed, Original audio kept selected, and no activation of Upgrade or
+Use Synth. Not one prompt was accepted on the first click; each needed 4 to 13 activations over
+0.6-2.4 seconds, which is exactly why the retry-until-gone behaviour is the fix.
+
 Download the ZIP below, extract it, select that folder with **Load unpacked** in `brave://extensions` or `chrome://extensions`, then reload open Songsterr tabs.
