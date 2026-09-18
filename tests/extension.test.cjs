@@ -28,6 +28,9 @@ test("unpacked MV3 extension in a real browser", async (t) => {
     body: `<!doctype html><html><head><title>Extension fixture</title></head><body>
       <button id="nearby">Normal control</button><main id="app"></main></body></html>`,
   }));
+  // Stands in for Songsterr: it records every activated control and, like the real page,
+  // dismisses the prompt when the free continuation is activated. A fixture that recorded
+  // clicks but never dismissed anything is what let a non-working release pass CI.
   await context.addInitScript(() => {
     window.clicks = [];
     window.started = 0;
@@ -36,6 +39,9 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       if (!control) return;
       event.preventDefault();
       window.clicks.push({ text: control.textContent, latency: performance.now() - window.started });
+      if ((control.innerText || "").replace(/\s+/gu, " ").trim().toLowerCase() === "continue with sync pauses") {
+        control.closest('[role="dialog"], [aria-modal="true"], dialog')?.remove();
+      }
     }, true);
   });
 
@@ -62,7 +68,7 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await insert(modal);
       await count(1);
       assert.equal(await page.evaluate(() => window.clicks[0].text), "continue with sync pauses");
-      await page.evaluate(() => document.querySelector('[role="dialog"]').append("changed"));
+      assert.equal(await page.locator('[role="dialog"]').count(), 0, "prompt should be dismissed");
       await count(1);
       await page.locator("#nearby").click();
       await count(2);
@@ -75,6 +81,12 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       ["button target", modal.replace('<a href="">continue with sync pauses</a>', '<button type="button">continue with sync pauses</button>')],
       ["ARIA button target", modal.replace('<a href="">continue with sync pauses</a>', '<span role="button" tabindex="0">continue with sync pauses</span>')],
       ["aria-modal", modal.replace('role="dialog"', 'aria-modal="true"')],
+      // Songsterr has already rewritten this sentence once ("Subscribe to Plus for Original
+      // audio syncing without pauses." -> the current copy), so it cannot identify the prompt.
+      ["rewritten headline copy", modal.replace("Upgrade to Plus for Original audio without sync pauses", "Go Plus for uninterrupted Original audio")],
+      // App devices render an app-store button instead of the /plus link.
+      ["upgrade link replaced by an app action", modal.replace('<a href="/plus">Upgrade</a>', "<span>Upgrade in App</span>")],
+      ["synth action renamed", modal.replace("Use Synth", "Switch to Synth")],
     ];
     for (const [name, html] of variants) {
       await t.test(name, async () => { await reset(); await insert(html); await count(1); });
@@ -83,9 +95,10 @@ test("unpacked MV3 extension in a real browser", async (t) => {
     const negatives = [
       ["exact text outside dialog", '<a href="">continue with sync pauses</a>'],
       ["page-wide context", modal.replace('role="dialog"', "")],
-      ["unrelated dialog", modal.replace("Upgrade to Plus for Original audio without sync pauses", "Account settings")],
-      ["missing synth action", modal.replace("Use Synth", "Cancel")],
-      ["missing upgrade action", modal.replace(">Upgrade<", ">Next<")],
+      ["unrelated dialog", modal
+        .replace("Upgrade to Plus for Original audio without sync pauses", "Account settings")
+        .replace("Use Synth", "Cancel")
+        .replace('href="/plus"', 'href="/help"')],
       ["near match", modal.replace("continue with sync pauses", "continue with sync pauses please")],
       ["navigation target", modal.replace('href=""', 'href="/plus"')],
       ["form submission", modal.replace('<a href="">continue with sync pauses</a>', '<button>continue with sync pauses</button>')],
@@ -93,7 +106,9 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       ["CSS hidden dialog", modal.replace('role="dialog"', 'role="dialog" style="display:none"')],
       ["inert dialog", modal.replace('role="dialog"', 'role="dialog" inert')],
       ["disabled target", modal.replace('href=""', 'href="" aria-disabled="true"')],
-      ["hidden context", modal.replace("<p>Upgrade", '<p hidden>Upgrade')],
+      ["hidden context", modal
+        .replace("<button type=\"button\">Use Synth", '<button type="button" hidden>Use Synth')
+        .replace('href="/plus"', 'href="/help"')],
       ["nested unrelated dialog", modal.replace('<a href="">', '<span role="dialog"><a href="">').replace('pauses</a>', 'pauses</a></span>')],
       ["localized text fails closed", modal.replace("continue with sync pauses", "pokračovat")],
     ];
@@ -113,7 +128,10 @@ test("unpacked MV3 extension in a real browser", async (t) => {
     });
     await t.test("late text node and late sibling context", async () => {
       await reset();
-      await insert(modal.replace("continue with sync pauses", "pending").replace("Use Synth", "pending"));
+      await insert(modal
+        .replace("continue with sync pauses", "pending")
+        .replace("Use Synth", "pending")
+        .replace('href="/plus"', 'href="/help"'));
       await page.evaluate(() => {
         document.querySelector('a[href=""]').firstChild.data = "continue with sync pauses";
       });
@@ -142,7 +160,7 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await page.evaluate((html) => {
         document.querySelector("#app").innerHTML = html;
         queueMicrotask(() => document.querySelector('a[href=""]').addEventListener("click", () => {
-          document.querySelector('[role="dialog"]').remove();
+          document.querySelector('[role="dialog"]')?.remove();
         }));
       }, modal);
       await page.locator('[role="dialog"]').waitFor({ state: "detached" });

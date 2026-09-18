@@ -25,9 +25,17 @@ To update, extract the new release, use **Reload** on the extension card, then r
 
 ## Behavior
 
-Version 0.1.7 uses one isolated content script. It watches Songsterr DOM changes and first targets the site's current continuation wrapper, `.w_eHuW_continueLink`, while still requiring the exact normalized **continue with sync pauses** action and a safe non-navigation target. This matches the current Plus interruption UI without depending on its dialog role or headline copy.
+Version 0.1.8 uses one isolated content script. It watches Songsterr DOM changes and looks for a
+visible dialog that carries the interruption's own controls - a visible **Upgrade** link to `/plus`
+or a visible **Use Synth** control - then targets the action inside it whose exact normalized text is
+**continue with sync pauses** and which cannot navigate away or submit a form.
 
-A conservative legacy fallback keeps support for the older semantic dialog shape. If Songsterr renders the target before attaching its click handler, the extension retries the same validated target on animation frames and stops as soon as Songsterr consumes the click, removes the target, or the target becomes invalid. Unsuccessful empty-link clicks have their browser navigation fallback suppressed.
+Songsterr's click handler is not effective the instant the prompt is rendered: a click that lands too
+early is cancelled by the page and changes nothing. The extension therefore judges activation by
+outcome. It activates the validated action immediately, then re-activates it on a rate-limited
+interval until the prompt has actually disappeared, and stops the moment it does. It deliberately
+does not key on Songsterr's generated class names or on the headline sentence, because the live site
+has already changed both.
 
 It never clicks Upgrade or Use Synth, changes subscriptions, hides the popup with CSS, removes ads, or bypasses the actual sync pauses. It has no relationship with Songsterr.
 
@@ -50,7 +58,7 @@ npm run check
 npm test
 ```
 
-The tests load the real unpacked extension into isolated Chromium and exercise controlled DOM fixtures, including the current Songsterr continuation wrapper and delayed page-handler attachment. They never replace the extension with a page-script mock. For a local Brave executable:
+The tests load the real unpacked extension into isolated Chromium and exercise controlled DOM fixtures, including the exact prompt markup captured from live Songsterr and the delayed page-handler readiness that caused the 0.1.7 failure. Fixtures dismiss the prompt when the free action is activated, so clicking without dismissing cannot pass. They never replace the extension with a page-script mock. For a local Brave executable:
 
 ```sh
 node tests/extension.test.cjs "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
