@@ -85,7 +85,9 @@ test("retries a prompt that never responds without busy-looping", async () => {
     await page.waitForTimeout(1500);
     const activations = await page.evaluate(() => window.activations);
     assert.ok(activations > 1, `expected retries, saw ${activations}`);
-    assert.ok(activations <= 12, `expected rate-limited retries, saw ${activations}`);
+    // The 50 ms interval allows ~30 in 1.5 s. Frame pacing would be 90-150, which is the
+    // busy loop this guards against.
+    assert.ok(activations <= 45, `expected rate-limited retries, saw ${activations}`);
     assert.equal(await page.locator('[role="dialog"]').count(), 1);
   });
 });

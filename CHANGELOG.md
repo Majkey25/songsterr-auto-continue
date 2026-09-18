@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.9 - 2026-09-18
+
+- Dismisses the interruption prompt roughly 100-160 ms sooner. No behaviour change beyond timing.
+- Measured the real floor on live Songsterr by activating the link on every animation frame: the page starts accepting the click after 449/458/720/2229/2286/2306 ms. The rest of the old 613-2420 ms was the extension's own 200 ms retry spacing.
+- The retry interval is now 50 ms, so at most 50 ms is added on top of whenever Songsterr becomes ready, instead of up to 200 ms.
+- The per-prompt cap is now a 12 s budget rather than 60 attempts, so shortening the interval cannot shorten how long a slow prompt is pursued.
+
 ## 0.1.8 - 2026-09-18
 
 - Fixed the prompt staying on screen during real Songsterr playback even though the extension had already clicked the right link.

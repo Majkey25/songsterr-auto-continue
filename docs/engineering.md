@@ -1,7 +1,7 @@
 # Engineering evidence
 
 This report separates what was observed on the live site from what was inferred. The current
-implementation is version 0.1.8.
+implementation is version 0.1.9.
 
 ## The failure, reproduced live
 
@@ -78,7 +78,21 @@ continuation, a `Use Synth` control, and an `<a href="/plus">` upgrade action. T
 also shows the `/plus` link is replaced by an app-store action on app devices, so either the upgrade
 link or the Use Synth control is accepted as corroboration rather than requiring both.
 
-## 0.1.8 architecture
+## How soon the prompt can possibly go
+
+Measured on the live site with no extension loaded, activating the link on every animation frame
+from the moment it appears, so the only delay left is Songsterr's own:
+
+| prompt | 1 | 2 | 3 | 4 | 5 | 6 |
+| --- | --- | --- | --- | --- | --- | --- |
+| accepted after | 449 ms | 458 ms | 720 ms | 2229 ms | 2286 ms | 2306 ms |
+
+Those numbers are the floor; nothing an extension does can beat them. The 0.1.8 release dismissed the
+same prompts in 613-2420 ms, so its own 200 ms retry spacing was adding 97-164 ms on top. 0.1.9 uses a
+50 ms interval, which caps that addition at 50 ms, and replaces the 60-attempt cap with a 12 s budget
+so a shorter interval cannot shorten how long a slow prompt is pursued.
+
+## 0.1.9 architecture
 
 One Manifest V3 isolated content script, no MAIN-world bridge, no background worker.
 
@@ -89,7 +103,7 @@ the control inside it whose exact normalized text is `continue with sync pauses`
 enabled, that is not an anchor pointing anywhere except `""` or `#`, and that is not a submit button.
 
 Activation is verified by outcome, which is the actual fix. The target is activated immediately on
-detection and then re-activated at most once per 200 ms until it is gone, for at most 60 attempts per
+detection and then re-activated at most once per 50 ms until it is gone, for at most 12 s per
 prompt. The moment a scan finds no target, the per-prompt state is dropped, so the next prompt - and a
 reused DOM node - starts from a clean slate. Nothing is ever recorded as handled on the strength of
 event flags.

@@ -25,15 +25,17 @@ To update, extract the new release, use **Reload** on the extension card, then r
 
 ## Behavior
 
-Version 0.1.8 uses one isolated content script. It watches Songsterr DOM changes and looks for a
+Version 0.1.9 uses one isolated content script. It watches Songsterr DOM changes and looks for a
 visible dialog that carries the interruption's own controls - a visible **Upgrade** link to `/plus`
 or a visible **Use Synth** control - then targets the action inside it whose exact normalized text is
 **continue with sync pauses** and which cannot navigate away or submit a form.
 
 Songsterr's click handler is not effective the instant the prompt is rendered: a click that lands too
 early is cancelled by the page and changes nothing. The extension therefore judges activation by
-outcome. It activates the validated action immediately, then re-activates it on a rate-limited
-interval until the prompt has actually disappeared, and stops the moment it does. It deliberately
+outcome. It activates the validated action immediately, then re-activates it every 50 ms until the
+prompt has actually disappeared, and stops the moment it does. Measured on the live site, Songsterr
+starts accepting the click after about 450 ms, so that interval is what decides how much is added on
+top of the site's own delay. It deliberately
 does not key on Songsterr's generated class names or on the headline sentence, because the live site
 has already changed both.
 
