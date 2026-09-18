@@ -10,8 +10,10 @@
   // Songsterr's own click handler is not effective the instant the prompt is inserted.
   // Clicks that land too early are cancelled by the page and change nothing, so activation
   // is verified by outcome - the prompt must actually disappear - and retried until it does.
-  const retryMs = 200;
-  const maxAttempts = 60;
+  // Measured on the live site, Songsterr starts accepting the click after ~450 ms typically
+  // and ~2.3 s at worst, so the interval is what decides how much is added on top of that.
+  const retryMs = 50;
+  const budgetMs = 12000;
 
   let attempt = null;
   let pending = 0;
@@ -84,8 +86,8 @@
       attempt = null;
       return;
     }
-    if (!attempt || attempt.target !== target) attempt = { target, count: 0, last: 0 };
-    if (attempt.count >= maxAttempts) return;
+    if (!attempt || attempt.target !== target) attempt = { target, until: Date.now() + budgetMs, last: 0 };
+    if (Date.now() > attempt.until) return;
 
     // One activation per target per retry interval, however noisy the page is.
     const wait = attempt.last + retryMs - Date.now();
@@ -93,7 +95,6 @@
       schedule(wait);
       return;
     }
-    attempt.count += 1;
     attempt.last = Date.now();
     activate(target);
     schedule(retryMs);
