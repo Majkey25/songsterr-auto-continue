@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.8 - 2026-09-18
+
+- Fixed the prompt staying on screen during real Songsterr playback even though the extension had already clicked the right link.
+- Root cause: Songsterr cancels a click that lands before its own handler is effective without dismissing the prompt. Earlier versions read that cancellation as success, recorded the target as handled and never tried again.
+- Activation is now verified by outcome. The validated free action is re-activated on a rate-limited interval until the prompt is actually gone, and stops immediately once it is.
+- Dropped the generated `.w_eHuW_continueLink` selector. That class is a per-build CSS-module hash and the whole naming scheme has already changed once on the live site.
+- Identification no longer depends on the headline sentence, which Songsterr has also rewritten; a visible Upgrade link or Use Synth control now corroborates the prompt, so app builds without a `/plus` link still work.
+- Test fixtures now dismiss the prompt when the free action is activated, so a release that clicks without dismissing can no longer pass CI.
+
 ## 0.1.5 - 2026-09-16
 
 - Fixed intermittent prompts that appeared before Songsterr attached the page click handler.

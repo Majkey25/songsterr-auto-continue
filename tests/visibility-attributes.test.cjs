@@ -36,13 +36,58 @@ async function withBrowser(fn) {
   }
 }
 
-test("production avoids wall-clock timing guesses", async () => {
+// Detection stays event-driven. Activation cannot be, because the moment Songsterr's own
+// handler becomes effective produces no DOM change to observe - see docs/engineering.md.
+// What must hold is that the first activation is immediate, retries are rate limited rather
+// than a busy loop, and they stop the moment the prompt is gone.
+test("detection is event-driven and never keyed to animation state", async () => {
   const source = await readFile(path.resolve("extension/content.js"), "utf8");
 
   assert.match(source, /MutationObserver/);
-  for (const timingPrimitive of ["setTimeout(", "setInterval(", ".getAnimations(", "_enter"]) {
-    assert.ok(!source.includes(timingPrimitive), `production still depends on ${timingPrimitive}`);
+  for (const guess of ["setInterval(", ".getAnimations(", "_enter", "_enterActive"]) {
+    assert.ok(!source.includes(guess), `production still depends on ${guess}`);
   }
+});
+
+test("stops activating as soon as the prompt is gone", async () => {
+  await withBrowser(async (page) => {
+    await page.evaluate((html) => {
+      window.activations = 0;
+      const app = document.querySelector("#app");
+      app.innerHTML = html.replace('style="display:none"', 'style="display:block"');
+      const dialog = app.querySelector('[role="dialog"]');
+      dialog.querySelector('a[href=""]').addEventListener("click", (event) => {
+        event.preventDefault();
+        window.activations++;
+        dialog.remove();
+      });
+    }, modal);
+
+    await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), undefined, { timeout: 2000 });
+    await page.waitForTimeout(1500);
+    assert.equal(await page.evaluate(() => window.activations), 1);
+  });
+});
+
+test("retries a prompt that never responds without busy-looping", async () => {
+  await withBrowser(async (page) => {
+    await page.evaluate((html) => {
+      window.activations = 0;
+      const app = document.querySelector("#app");
+      app.innerHTML = html.replace('style="display:none"', 'style="display:block"');
+      app.querySelector('a[href=""]').addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        window.activations++;
+      });
+    }, modal);
+
+    await page.waitForTimeout(1500);
+    const activations = await page.evaluate(() => window.activations);
+    assert.ok(activations > 1, `expected retries, saw ${activations}`);
+    assert.ok(activations <= 12, `expected rate-limited retries, saw ${activations}`);
+    assert.equal(await page.locator('[role="dialog"]').count(), 1);
+  });
 });
 
 test("clicks when an already-mounted dialog becomes visible by attribute change", async () => {

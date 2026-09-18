@@ -1,6 +1,6 @@
 {
   "name": "songsterr-auto-continue",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "description": "Development checks only; the extension has no runtime dependencies.",
   "scripts": {
