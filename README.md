@@ -11,6 +11,8 @@ Automatically clicks **“continue with sync pauses”** when Songsterr interrup
 
 No settings, background worker, analytics, network requests, or runtime dependencies. The extension runs only on `https://www.songsterr.com/*` and requests no additional permissions.
 
+[Privacy, data deletion, and terms of use](PRIVACY.md).
+
 ## Install in Brave / Chrome
 
 1. Download the extension ZIP from [Releases](https://github.com/Majkey25/songsterr-auto-continue/releases).
@@ -25,7 +27,7 @@ To update, extract the new release, use **Reload** on the extension card, then r
 
 ## Behavior
 
-Version 0.1.9 uses one isolated content script. It watches Songsterr DOM changes and looks for a
+Version 0.1.10 uses one isolated content script. It watches Songsterr DOM changes and looks for a
 visible dialog that carries the interruption's own controls - a visible **Upgrade** link to `/plus`
 or a visible **Use Synth** control - then targets the action inside it whose exact normalized text is
 **continue with sync pauses** and which cannot navigate away or submit a form.
@@ -76,4 +78,4 @@ It uses an isolated temporary profile, observes real interruption cycles when pl
 
 ## Releases
 
-CI tests and packages the extension on every pull request and `main` push. After a green `main` run, it publishes the stable `v<manifest version>` GitHub release if that version does not already exist. Release ZIPs include only manifest-referenced runtime files, icons, this README, and the MIT license; SHA-256 checksums accompany each release.
+CI tests and packages the extension on every pull request and `main` push. After a green `main` run, it publishes the stable `v<manifest version>` GitHub release if that version does not already exist. Release ZIPs include only manifest-referenced runtime files, icons, this README, the privacy notice, and the MIT license; SHA-256 checksums accompany each release.

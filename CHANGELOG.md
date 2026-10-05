@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10 - 2026-10-05
+
+- Add privacy, data-control, and free-use information to the repository and release ZIP. Runtime detection is unchanged.
+
 ## 0.1.9 - 2026-09-18
 
 - Dismisses the interruption prompt roughly 100-160 ms sooner. No behaviour change beyond timing.
