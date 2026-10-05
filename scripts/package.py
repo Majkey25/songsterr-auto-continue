@@ -23,7 +23,7 @@ runtime_files = list(dict.fromkeys(runtime_files))
 with ZipFile(archive, "w", compression=ZIP_DEFLATED) as bundle:
     for source in runtime_files:
         bundle.write(root / "extension" / source, source)
-    for source in ("README.md", "LICENSE"):
+    for source in ("README.md", "LICENSE", "PRIVACY.md"):
         bundle.write(root / source, source)
 digest = hashlib.sha256(archive.read_bytes()).hexdigest()
 (destination / "SHA256SUMS.txt").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
