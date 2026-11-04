@@ -16,6 +16,7 @@ def main():
     manifest = json.loads((ROOT / "extension/manifest.json").read_text(encoding="utf-8"))
     archive = DIST / f"songsterr-auto-continue-{manifest['version']}.zip"
     required = {"manifest.json"}
+    required.add(manifest["background"]["service_worker"])
     for content_script in manifest.get("content_scripts", []):
         required.update(content_script.get("js", []))
 

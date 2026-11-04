@@ -22,7 +22,14 @@ test("unpacked MV3 extension in a real browser", async (t) => {
   });
   const errors = [];
   const page = await context.newPage();
+  const background = context.serviceWorkers()[0] || await context.waitForEvent("serviceworker");
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "warning" && message.text().startsWith("Songsterr Auto Continue:")) {
+      errors.push(message.text());
+      console.error(message.text());
+    }
+  });
   await context.route("https://www.songsterr.com/**", (route) => route.fulfill({
     contentType: "text/html",
     body: `<!doctype html><html><head><title>Extension fixture</title></head><body>
@@ -38,14 +45,23 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       const control = event.target.closest("a,button,[role=button]");
       if (!control) return;
       event.preventDefault();
-      window.clicks.push({ text: control.textContent, latency: performance.now() - window.started });
+      if (!event.isTrusted) return;
+      window.clicks.push({ text: control.textContent, trusted: event.isTrusted, latency: performance.now() - window.started });
       if ((control.innerText || "").replace(/\s+/gu, " ").trim().toLowerCase() === "continue with sync pauses") {
         control.closest('[role="dialog"], [aria-modal="true"], dialog')?.remove();
       }
     }, true);
   });
 
+  async function idle() {
+    await background.evaluate(async () => {
+      const until = Date.now() + 15000;
+      while (activeTabs.size && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 10));
+      if (activeTabs.size) throw new Error("Debugger cleanup did not finish");
+    });
+  }
   async function reset() {
+    await idle();
     await page.goto("https://www.songsterr.com/a/wsa/test-tab-s1");
   }
   async function insert(html) {
@@ -68,6 +84,7 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await insert(modal);
       await count(1);
       assert.equal(await page.evaluate(() => window.clicks[0].text), "continue with sync pauses");
+      assert.equal(await page.evaluate(() => window.clicks[0].trusted), true);
       assert.equal(await page.locator('[role="dialog"]').count(), 0, "prompt should be dismissed");
       await count(1);
       await page.locator("#nearby").click();
@@ -92,6 +109,25 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       await t.test(name, async () => { await reset(); await insert(html); await count(1); });
     }
 
+    await t.test("blocks stale input when the target moves over Upgrade during pointerdown", async () => {
+      await reset();
+      await page.evaluate((html) => {
+        document.querySelector("#app").innerHTML = html;
+        const link = document.querySelector('a[href=""]');
+        link.addEventListener("pointerdown", () => {
+          const rect = link.getBoundingClientRect();
+          link.style.marginLeft = "300px";
+          Object.assign(document.querySelector('a[href="/plus"]').style, {
+            position: "fixed", left: `${rect.x}px`, top: `${rect.y}px`,
+            width: `${rect.width}px`, height: `${rect.height}px`,
+          });
+        }, { once: true });
+      }, modal);
+      await count(1);
+      assert.equal(await page.evaluate(() => window.clicks[0].text), "continue with sync pauses");
+      assert.equal(await page.locator('[role="dialog"]').count(), 0);
+    });
+
     const negatives = [
       ["exact text outside dialog", '<a href="">continue with sync pauses</a>'],
       ["page-wide context", modal.replace('role="dialog"', "")],
@@ -109,6 +145,8 @@ test("unpacked MV3 extension in a real browser", async (t) => {
       ["hidden context", modal
         .replace("<button type=\"button\">Use Synth", '<button type="button" hidden>Use Synth')
         .replace('href="/plus"', 'href="/help"')],
+      ["covered continuation", modal.replace('<a href="">', '<a href="" style="pointer-events:none">')],
+      ["nested upgrade context", '<form role="dialog"><a href="">continue with sync pauses</a><div role="dialog"><a href="/plus">Upgrade</a></div></form>'],
       ["nested unrelated dialog", modal.replace('<a href="">', '<span role="dialog"><a href="">').replace('pauses</a>', 'pauses</a></span>')],
       ["localized text fails closed", modal.replace("continue with sync pauses", "pokračovat")],
     ];
@@ -182,7 +220,8 @@ test("unpacked MV3 extension in a real browser", async (t) => {
         document.querySelector("#app").innerHTML = '<style>@keyframes enter {from {opacity:.5} to {opacity:1}} form {animation: enter 2s}</style>' + html;
       }, modal);
       await count(1);
-      assert.ok((await page.evaluate(() => window.clicks[0].latency)) < 150);
+      const latency = await page.evaluate(() => window.clicks[0].latency);
+      assert.ok(latency < 150, `Continuation took ${latency} ms`);
     });
     await t.test("hashed entry classes do not control readiness", async () => {
       await reset();
@@ -191,7 +230,8 @@ test("unpacked MV3 extension in a real browser", async (t) => {
         document.querySelector("#app").innerHTML = html.replace('class="w_eHuW_modal"', 'class="anything_enter anything_enterActive"');
       }, modal);
       await count(1);
-      assert.ok((await page.evaluate(() => window.clicks[0].latency)) < 150);
+      const latency = await page.evaluate(() => window.clicks[0].latency);
+      assert.ok(latency < 150, `Continuation took ${latency} ms`);
     });
     await t.test("another origin is excluded by the manifest", async () => {
       await context.route("https://example.com/**", (route) => route.fulfill({
@@ -204,6 +244,7 @@ test("unpacked MV3 extension in a real browser", async (t) => {
     await t.test("200 insertion-to-click measurements", async () => {
       await reset();
       for (let i = 0; i < 200; i++) {
+        await idle();
         await page.evaluate(() => document.querySelector("#app").replaceChildren());
         await insert(modal);
         await count(i + 1);

@@ -1,7 +1,8 @@
 # Engineering evidence
 
-This report separates what was observed on the live site from what was inferred. The current
-implementation is version 0.1.9.
+This report records the historical 0.1.7 to 0.1.9 investigation. Its architecture and timings are
+not the current implementation. Version 0.1.11 handles Songsterr's later `event.isTrusted` check
+with the `debugger` permission. See [current behavior and permission limits](../README.md#behavior).
 
 ## The failure, reproduced live
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.11 | 2026-11-04
+
+* Fix continuation after Songsterr began requiring `event.isTrusted`.
+* Add the `debugger` permission and a worker that revalidates the free action in an isolated world before sending browser input, then detaches.
+* Reject requests from other origins, frames, or extension pages. Stop automation after debugger errors or cancellation.
+* Test trusted input, permission boundaries, and actual prompt dismissal. Document the new permission and browser banner.
+
 ## 0.1.10 - 2026-10-05
 
 - Add privacy, data-control, and free-use information to the repository and release ZIP. Runtime detection is unchanged.

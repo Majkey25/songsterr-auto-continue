@@ -101,6 +101,7 @@ test("clicks when an already-mounted dialog becomes visible by attribute change"
         if (target?.textContent.trim().toLowerCase() === "continue with sync pauses") {
           event.preventDefault();
           window.continuations++;
+          target.closest('[role="dialog"]').remove();
         }
       }, true);
     });
@@ -121,6 +122,7 @@ test("clicks as soon as progressive mounting makes the prompt actionable", async
         if (target?.textContent.trim().toLowerCase() === "continue with sync pauses") {
           event.preventDefault();
           window.continuations++;
+          target.closest('[role="dialog"]').remove();
         }
       }, true);
       document.querySelector("#app").innerHTML = '<form role="dialog"><div id="prompt"></div></form>';

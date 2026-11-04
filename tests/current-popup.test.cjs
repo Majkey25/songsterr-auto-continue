@@ -39,6 +39,7 @@ function mountPrompt(html, readyAfterMs) {
   link.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!event.isTrusted) { window.swallowed += 1; return; }
     if (!ready) { window.swallowed += 1; return; }
     form.remove();
   });
@@ -57,10 +58,14 @@ async function withBrowser(fn) {
   const extension = path.resolve("extension");
   const context = await chromium.launchPersistentContext(profile, {
     channel: "chromium",
+    executablePath: process.argv[2] || undefined,
     headless: true,
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
   });
   const page = await context.newPage();
+  page.on("console", (message) => {
+    if (message.type() === "warning") console.error(message.text());
+  });
   await context.route("https://www.songsterr.com/**", (route) => route.fulfill({
     contentType: "text/html",
     body: '<!doctype html><html><body><main id="app"></main></body></html>',

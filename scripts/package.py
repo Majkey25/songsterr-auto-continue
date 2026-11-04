@@ -16,6 +16,7 @@ destination.mkdir(exist_ok=True)
 archive = destination / f"songsterr-auto-continue-{version}.zip"
 
 runtime_files = ["manifest.json", *manifest["icons"].values()]
+runtime_files.append(manifest["background"]["service_worker"])
 for content_script in manifest.get("content_scripts", []):
     runtime_files.extend(content_script.get("js", []))
 runtime_files = list(dict.fromkeys(runtime_files))

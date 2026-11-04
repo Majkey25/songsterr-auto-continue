@@ -9,7 +9,7 @@ Automatically clicks **“continue with sync pauses”** when Songsterr interrup
 
 [![Download latest version](https://img.shields.io/badge/Download-latest%20version-2ea44f?style=for-the-badge&logo=github)](https://github.com/Majkey25/songsterr-auto-continue/releases/latest)
 
-No settings, background worker, analytics, network requests, or runtime dependencies. The extension runs only on `https://www.songsterr.com/*` and requests no additional permissions.
+No settings, analytics, network requests, or runtime dependencies. A content script and service worker run the continuation on `https://www.songsterr.com/*`. Version 0.1.11 requires the powerful `debugger` permission because Songsterr now rejects programmatic DOM clicks.
 
 [Privacy, data deletion, and terms of use](PRIVACY.md).
 
@@ -25,21 +25,21 @@ From a source checkout, load the **`extension/`** folder instead. Node/npm is on
 
 To update, extract the new release, use **Reload** on the extension card, then reload Songsterr. Keep the installation folder; unpacked extensions load their files from it. Disable the extension from the same extensions page.
 
+Updating to 0.1.11 adds a permission. Read the browser's permission warning before enabling it. `debugger` can inspect and control pages beyond Songsterr; the restriction to Songsterr is enforced by this extension's code, not by a browser host-permission boundary. A browser debugging banner may appear briefly during continuation. Cancelling it or an attachment error stops automation until the Songsterr page reloads.
+
 ## Behavior
 
-Version 0.1.10 uses one isolated content script. It watches Songsterr DOM changes and looks for a
+Version 0.1.11 watches Songsterr DOM changes and looks for a
 visible dialog that carries the interruption's own controls - a visible **Upgrade** link to `/plus`
 or a visible **Use Synth** control - then targets the action inside it whose exact normalized text is
 **continue with sync pauses** and which cannot navigate away or submit a form.
 
-Songsterr's click handler is not effective the instant the prompt is rendered: a click that lands too
-early is cancelled by the page and changes nothing. The extension therefore judges activation by
-outcome. It activates the validated action immediately, then re-activates it every 50 ms until the
-prompt has actually disappeared, and stops the moment it does. Measured on the live site, Songsterr
-starts accepting the click after about 450 ms, so that interval is what decides how much is added on
-top of the site's own delay. It deliberately
-does not key on Songsterr's generated class names or on the headline sentence, because the live site
-has already changed both.
+Songsterr requires a trusted click. The content script requests continuation without supplying a
+tab ID, coordinates, JavaScript, or a debugger command. The worker accepts only its own top-level
+Songsterr content script, checks the current page, and revalidates the control in an isolated world.
+It clicks only when the control is visible and under the click point, then detaches the debugger.
+Retries are spaced by at least 50 ms and stop when the prompt disappears or the 12 s budget expires.
+Detection uses neither generated class names nor the headline sentence.
 
 It never clicks Upgrade or Use Synth, changes subscriptions, hides the popup with CSS, removes ads, or bypasses the actual sync pauses. It has no relationship with Songsterr.
 

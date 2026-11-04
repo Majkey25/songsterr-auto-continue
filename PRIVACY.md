@@ -1,12 +1,14 @@
 # Privacy and use of Songsterr Auto Continue
 
-Updated 5 October 2026. Developer: Matěj Teplý, publishing as Majkey / Majkey25. Contact: [majkeylab@gmail.com](mailto:majkeylab@gmail.com).
+Updated 4 November 2026. Developer: Matěj Teplý, publishing as Majkey / Majkey25. Contact: [majkeylab@gmail.com](mailto:majkeylab@gmail.com).
 
 ## Data processed on your device
 
 The extension runs only on `https://www.songsterr.com/*`. It inspects visible dialog text, links, and controls in the page to find Songsterr's free “continue with sync pauses” action and click it. This inspection happens inside your browser. Page content, account details, browsing history, and audio are not sent to the developer.
 
 There is no account, persistent storage, cookie, analytics, telemetry, advertising SDK, background network service, or remote executable code. Temporary references to page elements exist only while the content script is running. The extension uses page information only to activate the disclosed free continuation action, never for advertising, sale, or profiling.
+
+Version 0.1.11 adds the `debugger` permission to send the trusted input Songsterr requires. This permission can inspect and control browser pages beyond Songsterr. The extension's code limits its use to the top-level Songsterr page, rechecks the free continuation control in an isolated world, and detaches after each attempt. It does not read cookies, inspect network traffic, or accept arbitrary commands or coordinates from pages. The browser may show a debugging banner. Cancelling debugging or an attachment error stops automation until the page reloads.
 
 ## Control and deletion
 
