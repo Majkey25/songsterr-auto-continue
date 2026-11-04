@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.12 | 2026-11-04
+
+* Keep one debugger connection per continuation operation instead of reconnecting for every early click.
+* Revalidate the target and click point on every retry, including temporarily covered controls.
+* Let later prompts work after an earlier prompt exhausts its 12-second budget. Navigation, debugger errors, and user cancellation still stop the current operation.
+* Add browser regressions for connection count and recovery after exhaustion, plus worker tests for retries and navigation between attempts.
+
 ## 0.1.11 | 2026-11-04
 
 * Fix continuation after Songsterr began requiring `event.isTrusted`.

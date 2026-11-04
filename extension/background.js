@@ -9,11 +9,11 @@ const maxActiveTabs = 16;
 const targetExpression = `(() => {
   const target = (${findContinueTarget})();
   if (!target) return null;
-  target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  target.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
   const rect = target.getBoundingClientRect();
   const x = rect.x + rect.width / 2;
   const y = rect.y + rect.height / 2;
-  return target.contains(document.elementFromPoint(x, y)) ? { x, y } : null;
+  return { x, y, hit: target.contains(document.elementFromPoint(x, y)) };
 })()`;
 
 async function continuePlayback(tabId, documentId) {
@@ -43,23 +43,31 @@ async function continuePlayback(tabId, documentId) {
     const { executionContextId } = await chrome.debugger.sendCommand(debuggee, "Page.createIsolatedWorld", {
       frameId, worldName: "songsterr-auto-continue",
     });
-    const { result, exceptionDetails } = await chrome.debugger.sendCommand(debuggee, "Runtime.evaluate", {
-      expression: targetExpression, contextId: executionContextId, returnByValue: true,
-    });
-    if (exceptionDetails) throw new Error("Could not validate the continuation control");
-    const point = result?.value;
-    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
-    const armed = await chrome.tabs.sendMessage(tabId, { type: "arm", ...point }, { documentId });
-    if (!armed) return;
-    if (stopReason) throw new Error(`Continuation cancelled after ${stopReason}`);
-    await chrome.debugger.sendCommand(debuggee, "Input.dispatchMouseEvent", {
-      type: "mousePressed", ...point, button: "left", buttons: 1, clickCount: 1,
-    });
-    if (stopReason) throw new Error(`Continuation cancelled after ${stopReason}`);
-    await chrome.debugger.sendCommand(debuggee, "Input.dispatchMouseEvent", {
-      type: "mouseReleased", ...point, button: "left", buttons: 0, clickCount: 1,
-    });
+    // Keep one attachment while the page ignores early clicks, avoiding repeated banner changes.
+    while (!stopReason) {
+      const { result, exceptionDetails } = await chrome.debugger.sendCommand(debuggee, "Runtime.evaluate", {
+        expression: targetExpression, contextId: executionContextId, returnByValue: true,
+      });
+      if (exceptionDetails) throw new Error("Could not validate the continuation control");
+      const point = result?.value;
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+      if (stopReason) throw new Error(`Continuation cancelled after ${stopReason}`);
+      if (point.hit && await chrome.tabs.sendMessage(tabId, { type: "arm", x: point.x, y: point.y }, { documentId })) {
+        if (stopReason) throw new Error(`Continuation cancelled after ${stopReason}`);
+        const { x, y } = point;
+        await chrome.debugger.sendCommand(debuggee, "Input.dispatchMouseEvent", {
+          type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1,
+        });
+        if (stopReason) throw new Error(`Continuation cancelled after ${stopReason}`);
+        await chrome.debugger.sendCommand(debuggee, "Input.dispatchMouseEvent", {
+          type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount: 1,
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (stopReason !== "navigation") throw new Error(`Continuation cancelled after ${stopReason}`);
   } catch (error) {
+    if (stopReason === "timeout") return { exhausted: true };
     if (stopReason !== "navigation") throw error;
   } finally {
     clearTimeout(deadline);
@@ -78,7 +86,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   activeTabs.add(sender.tab.id);
   continuePlayback(sender.tab.id, sender.documentId).then(
-    () => sendResponse({ ok: true }),
+    (outcome) => sendResponse({ ok: true, ...outcome }),
     (error) => sendResponse({ error: error.message }),
   ).finally(() => activeTabs.delete(sender.tab.id));
   return true;

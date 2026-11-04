@@ -13,6 +13,7 @@
 
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type !== "arm" || sender.id !== chrome.runtime.id) return false;
+    point = null;
     const target = active && findContinueTarget();
     const valid = target && Number.isFinite(message.x) && Number.isFinite(message.y) &&
       target.contains(document.elementFromPoint(message.x, message.y));
@@ -30,6 +31,7 @@
         event.preventDefault();
         event.stopImmediatePropagation();
       } else if (type === "click") event.preventDefault();
+      if (type === "click") point = null;
     }, true);
   }
 
@@ -47,20 +49,14 @@
       attempt = null;
       return;
     }
-    if (!attempt || attempt.target !== target) attempt = { target, until: Date.now() + budgetMs, last: 0 };
+    if (!attempt || attempt.target !== target) attempt = { target, until: Date.now() + budgetMs };
     if (Date.now() > attempt.until) return;
 
-    // One activation per target per retry interval, however noisy the page is.
-    const wait = attempt.last + retryMs - Date.now();
-    if (wait > 0) {
-      schedule(wait);
-      return;
-    }
-    attempt.last = Date.now();
     active = true;
     try {
       const response = await chrome.runtime.sendMessage("continue");
       if (response?.error) throw new Error(response.error);
+      if (response?.exhausted) attempt.until = 0;
     } catch (error) {
       failed = true;
       console.warn("Songsterr Auto Continue:", error.message);

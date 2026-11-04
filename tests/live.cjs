@@ -51,7 +51,7 @@ async function main() {
     }, true);
   });
   try {
-    await page.goto(process.argv[3] || "https://www.songsterr.com/a/wsa/led-zeppelin-stairway-to-heaven-tab-s27");
+    await page.goto(process.argv[3] || "https://www.songsterr.com/a/wsa/led-zeppelin-stairway-to-heaven-tab-s27", { waitUntil: "domcontentloaded" });
     const reject = page.getByRole("button", { name: "Reject All", exact: true });
     if (await reject.count()) await reject.click({ timeout: 5000 });
     await playOriginal();
@@ -106,7 +106,7 @@ async function main() {
       playing: document.querySelector("#control-play").getAttribute("aria-pressed"),
     }));
     assert.ok(result.afterNavigation.original);
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded" });
     await playOriginal();
     await page.waitForFunction(() => window.continuations.some((record) => record.dismissedAt), undefined, { timeout: 60000 });
     result.afterReload = await page.evaluate(() => ({

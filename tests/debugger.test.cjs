@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const extension = path.resolve("extension");
 const sender = { id: "extension-id", frameId: 0, documentId: "document-id", tab: { id: 7 }, url: "https://www.songsterr.com/a/wsa/test" };
 
-function worker({ url = sender.url, point = { x: 10, y: 20 }, errorAt, cancelAt, expireAt, armed = true, pauseAt } = {}) {
+function worker({ url = sender.url, point = { x: 10, y: 20, hit: true }, points, errorAt, cancelAt, expireAt, armed = true, pauseAt } = {}) {
   const calls = [];
   let listener;
   let navigation;
@@ -15,6 +15,7 @@ function worker({ url = sender.url, point = { x: 10, y: 20 }, errorAt, cancelAt,
   let resume;
   let paused = false;
   let signalPaused;
+  let evaluations = 0;
   const ready = new Promise((resolve) => { signalPaused = resolve; });
   const pause = async (method) => {
     if (method === pauseAt && !paused) {
@@ -25,13 +26,22 @@ function worker({ url = sender.url, point = { x: 10, y: 20 }, errorAt, cancelAt,
   };
   const context = vm.createContext({
     console,
-    setTimeout: (fn) => { deadline = fn; return 1; },
+    setTimeout: (fn, delay) => {
+      if (delay === 12000) { deadline = fn; return 1; }
+      assert.equal(delay, 50);
+      queueMicrotask(() => {
+        if (cancelAt === "retry") navigation({ tabId: sender.tab.id }, "Page.frameStartedLoading", { frameId: "main" });
+        fn();
+      });
+      return 2;
+    },
     clearTimeout: () => { deadline = undefined; },
     chrome: {
       runtime: { id: sender.id, onMessage: { addListener: (fn) => { listener = fn; } } },
       tabs: { sendMessage: async (tabId, message, options) => {
         assert.equal(tabId, sender.tab.id);
         assert.equal(options.documentId, sender.documentId);
+        if (errorAt === "arm") throw new Error("content script disconnected");
         return armed;
       } },
       debugger: {
@@ -46,7 +56,7 @@ function worker({ url = sender.url, point = { x: 10, y: 20 }, errorAt, cancelAt,
           if (method === errorAt) throw new Error("debugger cancelled");
           if (method === "Page.getFrameTree") return { frameTree: { frame: { id: "main", url } } };
           if (method === "Page.createIsolatedWorld") return { executionContextId: 3 };
-          if (method === "Runtime.evaluate") return { result: { value: point } };
+          if (method === "Runtime.evaluate") return { result: { value: points ? points[evaluations++] : evaluations++ === 0 ? point : null } };
           return {};
         },
       },
@@ -85,7 +95,7 @@ test("debugger rechecks origin, target, and finite coordinates before sending in
 });
 
 test("debugger uses the sender tab and always detaches after success or error", async () => {
-  for (const errorAt of [undefined, "Runtime.evaluate"]) {
+  for (const errorAt of [undefined, "Runtime.evaluate", "arm"]) {
     const { calls, request } = worker({ errorAt });
     const response = await request("continue", sender);
     assert.equal(Boolean(response.error), Boolean(errorAt));
@@ -103,8 +113,8 @@ test("navigation and the worker deadline cancel input after validation", async (
   for (const options of [{ cancelAt: "Runtime.evaluate" }, { expireAt: "Runtime.evaluate" }]) {
     const { calls, request } = worker(options);
     const response = await request("continue", sender);
-    if (options.expireAt) assert.match(response.error, /cancelled/);
-    else assert.equal(response.error, undefined);
+    if (options.expireAt) assert.equal(response.exhausted, true);
+    assert.equal(response.error, undefined);
     assert.ok(!calls.some((call) => call.method.startsWith("Input.")));
     assert.equal(calls.filter((call) => call.method === "detach").length, 1);
   }
@@ -142,5 +152,32 @@ test("navigation keeps the tab locked until the original detach promise settles"
   assert.equal(busy.ok, false);
   resume();
   await first;
+  assert.equal(calls.filter((call) => call.method === "detach").length, 1);
+});
+
+test("retries fresh coordinates in one session, including a temporarily covered target", async () => {
+  const { calls, request } = worker({ points: [
+    { x: 10, y: 20, hit: true },
+    { x: 10, y: 20, hit: false },
+    { x: 30, y: 40, hit: true },
+    null,
+  ] });
+  await request("continue", sender);
+  assert.equal(calls.filter((call) => call.method === "attach").length, 1);
+  assert.equal(calls.filter((call) => call.method === "detach").length, 1);
+  assert.equal(calls.filter((call) => call.method === "Page.createIsolatedWorld").length, 1);
+  assert.deepEqual(calls.filter((call) => call.method === "Input.dispatchMouseEvent")
+    .map((call) => [call.params.type, call.params.x, call.params.y]), [
+    ["mousePressed", 10, 20], ["mouseReleased", 10, 20],
+    ["mousePressed", 30, 40], ["mouseReleased", 30, 40],
+  ]);
+});
+
+test("navigation while waiting for a retry ends the session without another activation", async () => {
+  const { calls, request } = worker({ cancelAt: "retry" });
+  const response = await request("continue", sender);
+  assert.equal(response.error, undefined);
+  assert.equal(calls.filter((call) => call.method === "Runtime.evaluate").length, 1);
+  assert.equal(calls.filter((call) => call.method === "Input.dispatchMouseEvent").length, 2);
   assert.equal(calls.filter((call) => call.method === "detach").length, 1);
 });

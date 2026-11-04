@@ -63,6 +63,7 @@ async function withBrowser(fn) {
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
   });
   const page = await context.newPage();
+  const background = context.serviceWorkers()[0] || await context.waitForEvent("serviceworker");
   page.on("console", (message) => {
     if (message.type() === "warning") console.error(message.text());
   });
@@ -72,7 +73,7 @@ async function withBrowser(fn) {
   }));
   try {
     await page.goto("https://www.songsterr.com/a/wsa/test-tab-s1");
-    await fn(page);
+    await fn(page, background);
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });
@@ -84,6 +85,54 @@ const dismissed = (page) =>
 
 const assertSafe = async (page) =>
   assert.deepEqual(await page.evaluate(() => window.forbidden), []);
+
+test("retries a delayed prompt with one debugger attachment", async () => {
+  await withBrowser(async (page, background) => {
+    await background.evaluate(() => {
+      globalThis.attachments = 0;
+      globalThis.detachments = 0;
+      for (const [method, counter] of [["attach", "attachments"], ["detach", "detachments"]]) {
+        const original = chrome.debugger[method].bind(chrome.debugger);
+        chrome.debugger[method] = (...args) => {
+          globalThis[counter] += 1;
+          return original(...args);
+        };
+      }
+    });
+    const started = Date.now();
+    await mount(page, livePrompt, 500);
+    await dismissed(page);
+    const elapsed = Date.now() - started;
+    const counts = await background.evaluate(async () => {
+      const until = Date.now() + 15000;
+      while (activeTabs.size && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 10));
+      if (activeTabs.size) throw new Error("Debugger cleanup did not finish");
+      return { attach: attachments, detach: detachments };
+    });
+    console.log("Delayed prompt:", { ...counts, elapsed });
+    await assertSafe(page);
+    assert.ok(await page.evaluate(() => window.swallowed) > 0, "the fixture must exercise retries");
+    assert.deepEqual(counts, { attach: 1, detach: 1 });
+  });
+});
+
+test("an exhausted prompt does not disable later prompts in the same document", async () => {
+  await withBrowser(async (page, background) => {
+    await mount(page, livePrompt, 30000);
+    await background.evaluate(async () => {
+      const until = Date.now() + 15000;
+      while (!activeTabs.size && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 10));
+      if (!activeTabs.size) throw new Error("Debugger did not attach");
+      while (activeTabs.size && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 10));
+      if (activeTabs.size) throw new Error("Debugger exceeded its operation budget");
+    });
+    assert.equal(await page.locator('[role="dialog"]').count(), 1);
+    await assertSafe(page);
+    await mount(page, livePrompt, 0);
+    await dismissed(page);
+    await assertSafe(page);
+  });
+});
 
 // The live failure: Songsterr's handler is not effective the instant the prompt is inserted.
 for (const readyAfterMs of [0, 100, 500, 2000]) {

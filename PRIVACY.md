@@ -8,7 +8,7 @@ The extension runs only on `https://www.songsterr.com/*`. It inspects visible di
 
 There is no account, persistent storage, cookie, analytics, telemetry, advertising SDK, background network service, or remote executable code. Temporary references to page elements exist only while the content script is running. The extension uses page information only to activate the disclosed free continuation action, never for advertising, sale, or profiling.
 
-Version 0.1.11 adds the `debugger` permission to send the trusted input Songsterr requires. This permission can inspect and control browser pages beyond Songsterr. The extension's code limits its use to the top-level Songsterr page, rechecks the free continuation control in an isolated world, and detaches after each attempt. It does not read cookies, inspect network traffic, or accept arbitrary commands or coordinates from pages. The browser may show a debugging banner. Cancelling debugging or an attachment error stops automation until the page reloads.
+Version 0.1.11 adds the `debugger` permission to send the trusted input Songsterr requires. This permission can inspect and control browser pages beyond Songsterr. The extension's code limits its use to the top-level Songsterr page and rechecks the free continuation control in an isolated world before every click. Version 0.1.12 keeps one connection while retrying a prompt, detaching when it disappears, navigation starts, or the 12-second limit expires. It does not read cookies, inspect network traffic, or accept arbitrary commands or coordinates from pages. The browser may show a debugging banner during that operation. Cancelling debugging or an attachment error stops automation until the page reloads.
 
 ## Control and deletion
 
