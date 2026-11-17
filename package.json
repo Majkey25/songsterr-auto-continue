@@ -8,6 +8,6 @@
     "test": "node --test tests/extension.test.cjs tests/current-popup.test.cjs tests/debugger.test.cjs"
   },
   "devDependencies": {
-    "playwright": "1.62.1"
+    "playwright": "1.65.1"
   }
 }
